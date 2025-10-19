@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: plan-service
+  datasource:
+    url: jdbc:postgresql://db:5432/rehabdb
+    username: postgres
+    password: 1234
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

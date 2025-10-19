@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+        - id: patient-service
+          uri: lb://patient-service
+          predicates:
+            - Path=/patients/**
+        - id: file-service
+          uri: lb://file-service
+          predicates:
+            - Path=/files/**
+        - id: prescription-service
+          uri: lb://prescription-service
+          predicates:
+            - Path=/prescriptions/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
+        - id: plan-service
+          uri: lb://plan-service
+          predicates:
+            - Path=/plans/**
