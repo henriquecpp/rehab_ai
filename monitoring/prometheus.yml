@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "spring-boot-services"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets:
+          - "api-gateway:8080"
+          - "auth-service:8081"
+          - "patient-service:8082"
+          - "file-service:8083"
+          - "prescription-service:8084"
+          - "plan-service:8085"
+          - "notification-service:8086"
