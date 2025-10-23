@@ -1,0 +1,12 @@
+# .gitignore na raiz (./rehab_ai/.gitignore)
+
+# Configurações JetBrains (IntelliJ)
+.idea/
+*.iml
+
+# Builds
+target/
+build/
+
+# Logs
+*.log
