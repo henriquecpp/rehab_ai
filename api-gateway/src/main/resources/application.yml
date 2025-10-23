@@ -28,3 +28,33 @@ spring:
           uri: lb://plan-service
           predicates:
             - Path=/plans/**
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+# JWT secret used by the gateway to validate HS256 tokens. Replace in production with a secure secret or use a secret manager.
+auth:
+  jwt:
+    secret: changeitchangemechangeit
+
+# Optional: service ports for local development. StaticServiceInstanceConfig currently hardcodes ports,
+# but you can mirror those values here and adjust code if you prefer to read them from properties.
+services:
+  auth-service:
+    port: 8081
+  patient-service:
+    port: 8082
+  file-service:
+    port: 8083
+  prescription-service:
+    port: 8084
+  notification-service:
+    port: 8085
+  plan-service:
+    port: 8086
