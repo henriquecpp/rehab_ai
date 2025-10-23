@@ -30,17 +30,17 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public User registerNewUser(RegisterRequest req) {
-        if (userRepository.existsByUsername(req.getUsername())) {
+        if (userRepository.existsByUsername(req.username())) {
             throw new IllegalArgumentException("username_exists");
         }
-        if (userRepository.existsByEmail(req.getEmail())) {
+        if (userRepository.existsByEmail(req.email())) {
             throw new IllegalArgumentException("email_exists");
         }
 
         User u = new User();
-        u.setUsername(req.getUsername());
-        u.setEmail(req.getEmail());
-        u.setPassword(passwordEncoder.encode(req.getPassword()));
+        u.setUsername(req.username());
+        u.setEmail(req.email());
+        u.setPassword(passwordEncoder.encode(req.password()));
         u.setRoles(Set.of("ROLE_USER"));
 
         return userRepository.save(u);
