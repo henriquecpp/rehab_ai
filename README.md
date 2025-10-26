@@ -48,11 +48,3 @@ Cada serviço expõe uma porta distinta. Inicie primeiro o Auth Service (H2 em m
 ## Observabilidade
 - Todos os serviços possuem Actuator. O Prometheus coleta em `/actuator/prometheus`.
 - As portas alvo estão em `monitoring/prometheus.yml`.
-
-## Próximos passos sugeridos
-1. Implementar endpoints reais (controllers, services) nos serviços Patient/File/Prescription/Plan/Notification.
-2. Validar JWT no Gateway (ou manter validação apenas nos serviços downstream com Resource Server).
-3. Adicionar MinIO para S3 local e configurar File/Prescription services.
-4. Adicionar tracing (OpenTelemetry/Jaeger) e logs estruturados.
-5. Consolidar perfis: separar `application.yml` para dev e `application-docker.yml` para docker em todos os serviços.
-
