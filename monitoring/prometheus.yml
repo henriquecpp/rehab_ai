@@ -11,5 +11,5 @@ scrape_configs:
           - "patient-service:8082"
           - "file-service:8083"
           - "prescription-service:8084"
-          - "plan-service:8085"
-          - "notification-service:8086"
+          - "notification-service:8085"
+          - "plan-service:8086"
