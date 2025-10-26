@@ -2,25 +2,51 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://db:5432/rehabdb
-    username: postgres
-    password: 1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:db}:${DB_PORT:5432}/${DB_NAME:rehabdb}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:1234}}
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
   rabbitmq:
-    host: rabbitmq
-    port: 5672
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASS:guest}
   mail:
-  host: smtp.gmail.com
-  port: 587
-  username: ${MAIL_USER}
-  password: ${MAIL_PASS}
-  properties:
-    mail:
-      smtp:
-        auth: true
-        starttls.enable: true
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USER}
+    password: ${MAIL_PASS}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+
+server:
+  port: ${SERVER_PORT:8085}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:prometheus,health,info}
+  tracing:
+    enabled: true
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+      transport: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
+
+amqp:
+  fileExchange: ${AMQP_FILE_EXCHANGE:file.events}
+  routingKeyUploaded: ${AMQP_ROUTING_KEY_UPLOADED:file.uploaded}
+  notificationQueue: ${AMQP_NOTIFICATION_QUEUE:notification.file.uploaded}
+
+notification:
+  mail:
+    to: ${NOTIFICATION_TO:${MAIL_USER}}

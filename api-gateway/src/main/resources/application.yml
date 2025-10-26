@@ -1,50 +1,63 @@
 spring:
   application:
     name: api-gateway
+  web:
+    resources:
+      add-mappings: false
   cloud:
     gateway:
       routes:
         - id: auth-service
-          uri: lb://auth-service
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8081}
           predicates:
             - Path=/auth/**
         - id: patient-service
-          uri: lb://patient-service
+          uri: ${PATIENT_SERVICE_URL:http://patient-service:8082}
           predicates:
             - Path=/patients/**
         - id: file-service
-          uri: lb://file-service
+          uri: ${FILE_SERVICE_URL:http://file-service:8083}
           predicates:
             - Path=/files/**
         - id: prescription-service
-          uri: lb://prescription-service
+          uri: ${PRESCRIPTION_SERVICE_URL:http://prescription-service:8084}
           predicates:
             - Path=/prescriptions/**
         - id: notification-service
-          uri: lb://notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
           predicates:
             - Path=/notifications/**
         - id: plan-service
-          uri: lb://plan-service
+          uri: ${PLAN_SERVICE_URL:http://plan-service:8086}
           predicates:
             - Path=/plans/**
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:prometheus,health,info}
+  tracing:
+    enabled: true
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+      transport: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
 
-# JWT secret used by the gateway to validate HS256 tokens. Replace in production with a secure secret or use a secret manager.
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+
 auth:
   jwt:
-    secret: changeitchangemechangeit
+    secret: ${JWT_SECRET:my-secret-key}
 
-# Optional: service ports for local development. StaticServiceInstanceConfig currently hardcodes ports,
-# but you can mirror those values here and adjust code if you prefer to read them from properties.
 services:
   auth-service:
     port: 8081
