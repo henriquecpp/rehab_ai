@@ -61,6 +61,9 @@ ocr:
   fallback:
     minConfidence: ${OCR_FALLBACK_MIN_CONFIDENCE:0.2}
 
+normalization:
+  useLlm: ${NORMALIZATION_USE_LLM:false}
+
 llm:
   useBedrock: ${USE_BEDROCK:false}
   modelId: ${BEDROCK_MODEL_ID:anthropic.claude-3-haiku}
