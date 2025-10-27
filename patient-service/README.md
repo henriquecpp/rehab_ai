@@ -21,4 +21,3 @@ Gestão de pacientes e histórico clínico.
 - Métricas: /actuator/prometheus
 - Health: /actuator/health
 - Tracing: via OTLP
-

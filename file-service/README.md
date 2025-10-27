@@ -5,7 +5,10 @@ Upload e mensageria de arquivos (RabbitMQ + S3/MinIO).
 ## Variáveis de ambiente
 - SERVER_PORT (default: 8083)
 - SPRING_DATASOURCE_URL/USERNAME/PASSWORD (Postgres)
-- SPRING_RABBITMQ_HOST/PORT/USERNAME/PASSWORD
+- SPRING_RABBITMQ_HOST (default: rabbitmq)
+- SPRING_RABBITMQ_PORT (default: 5672)
+- RABBITMQ_USER (default: guest)
+- RABBITMQ_PASS (default: guest)
 - AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION
 - S3_ENDPOINT (ex.: http://minio:9000)
 - S3_BUCKET (default: rehab-files)
@@ -21,4 +24,3 @@ Upload e mensageria de arquivos (RabbitMQ + S3/MinIO).
 - Métricas: /actuator/prometheus
 - Health: /actuator/health
 - Tracing: via OTLP
-
