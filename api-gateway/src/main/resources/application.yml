@@ -11,8 +11,12 @@ spring:
           uri: ${AUTH_SERVICE_URL:http://auth-service:8081}
           predicates:
             - Path=/auth/**
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://user-service:8082}
+          predicates:
+            - Path=/users/**
         - id: patient-service
-          uri: ${PATIENT_SERVICE_URL:http://patient-service:8082}
+          uri: ${PATIENT_SERVICE_URL:http://patient-service:8087}
           predicates:
             - Path=/patients/**
         - id: file-service
@@ -61,8 +65,10 @@ auth:
 services:
   auth-service:
     port: 8081
-  patient-service:
+  user-service:
     port: 8082
+  patient-service:
+    port: 8087
   file-service:
     port: 8083
   prescription-service:
