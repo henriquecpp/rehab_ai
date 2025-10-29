@@ -3,7 +3,7 @@
 Gestão de pacientes e histórico clínico.
 
 ## Variáveis de ambiente
-- SERVER_PORT (default: 8082)
+- SERVER_PORT (default: 8087)
 - SPRING_DATASOURCE_URL (default: jdbc:postgresql://db:5432/rehabdb)
 - SPRING_DATASOURCE_USERNAME (default: postgres)
 - SPRING_DATASOURCE_PASSWORD (default: 1234)
