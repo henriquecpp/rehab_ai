@@ -27,6 +27,7 @@ public class PipelineService {
     private final ExtractionRepository extractionRepo;
     private final NormalizationRepository normalizationRepo;
     private final PrescriptionRepository prescriptionRepo;
+    private final AiTraceRepository aiTraceRepo;
 
     private final MeterRegistry meterRegistry;
     private final ObservationRegistry observationRegistry;
@@ -39,6 +40,7 @@ public class PipelineService {
                            ExtractionRepository extractionRepo,
                            NormalizationRepository normalizationRepo,
                            PrescriptionRepository prescriptionRepo,
+                           AiTraceRepository aiTraceRepo,
                            MeterRegistry meterRegistry,
                            ObservationRegistry observationRegistry,
                            Tracer tracer) {
@@ -49,6 +51,7 @@ public class PipelineService {
         this.extractionRepo = extractionRepo;
         this.normalizationRepo = normalizationRepo;
         this.prescriptionRepo = prescriptionRepo;
+        this.aiTraceRepo = aiTraceRepo;
         this.meterRegistry = meterRegistry;
         this.observationRegistry = observationRegistry;
         this.tracer = tracer;
@@ -68,13 +71,14 @@ public class PipelineService {
         Timer.Sample total = Timer.start(meterRegistry);
         Observation overallObs = Observation.start("pipeline.run", observationRegistry)
                 .lowCardinalityKeyValue("service", "prescription-service");
-        try (Observation.Scope scope = overallObs.openScope()) {
+        try (Observation.Scope overallScope = overallObs.openScope()) {
             // Extraction Stage
             run.setCurrentStage(WorkflowStage.EXTRACTION);
             runRepo.save(run);
             Observation extractObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
                     .lowCardinalityKeyValue("stage", "extraction");
             Timer.Sample extractTimer = Timer.start(meterRegistry);
+
             Extraction ext;
             String extractedText;
             try (Observation.Scope s = extractObs.start().openScope()) {
@@ -103,7 +107,9 @@ public class PipelineService {
             Observation normObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
                     .lowCardinalityKeyValue("stage", "normalization");
             Timer.Sample normTimer = Timer.start(meterRegistry);
-            Normalization norm;
+
+            Normalization norm = null;
+            long startNorm = System.currentTimeMillis();
             try (Observation.Scope s = normObs.start().openScope()) {
                 var normRes = normalizationService.normalize(extractedText);
                 norm = new Normalization();
@@ -118,16 +124,25 @@ public class PipelineService {
                 meterRegistry.counter("pipeline.stage.failure", "stage", "normalization").increment();
                 throw ex;
             } finally {
+                int latencyNorm = (int) (System.currentTimeMillis() - startNorm);
+                // Trace for normalization (input: extractedText, output: normalized terms)
+                saveAiTrace(run.getTraceId(), "normalizer",
+                        truncate(extractedText, 500),
+                        truncate(norm != null ? norm.getNormalizedTerms() : null, 500),
+                        latencyNorm, false);
+
                 normObs.stop();
                 normTimer.stop(Timer.builder("pipeline.stage.latency").tag("stage", "normalization").register(meterRegistry));
             }
 
-            // Prescription Stage
+            // Prescription Stage (LLM)
             run.setCurrentStage(WorkflowStage.PRESCRIPTION);
             runRepo.save(run);
             Observation prescObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
                     .lowCardinalityKeyValue("stage", "prescription");
             Timer.Sample prescTimer = Timer.start(meterRegistry);
+
+            long startLlm = System.currentTimeMillis();
             try (Observation.Scope s = prescObs.start().openScope()) {
                 var llm = llmService.generate(norm.getNormalizedTerms());
                 Prescription pr = new Prescription();
@@ -138,6 +153,14 @@ public class PipelineService {
                 pr.setModelUsed(llm.modelUsed());
                 pr.setGuardrailStatus(llm.guardrailStatus());
                 prescriptionRepo.save(pr);
+
+                boolean blocked = llm.guardrailStatus() == GuardrailStatus.BLOCKED;
+                int latencyLlm = (int) (System.currentTimeMillis() - startLlm);
+                saveAiTrace(run.getTraceId(), "prescription-llm",
+                        truncate(norm.getNormalizedTerms(), 500),
+                        truncate(llm.prescriptionText(), 500),
+                        latencyLlm, blocked);
+
                 meterRegistry.counter("pipeline.stage.success", "stage", "prescription").increment();
             } catch (Exception ex) {
                 prescObs.error(ex);
@@ -163,6 +186,27 @@ public class PipelineService {
             overallObs.stop();
             total.stop(Timer.builder("pipeline.run.latency").register(meterRegistry));
         }
+    }
+
+    private void saveAiTrace(String traceId, String agentName, String inputSummary,
+                             String outputSummary, int latencyMs, boolean blockedByGuardrail) {
+        try {
+            AiTrace trace = new AiTrace();
+            trace.setTraceId(traceId);
+            trace.setAgentName(agentName);
+            trace.setInputSummary(inputSummary);
+            trace.setOutputSummary(outputSummary);
+            trace.setLatencyMs(latencyMs);
+            trace.setBlockedByGuardrail(blockedByGuardrail);
+            aiTraceRepo.save(trace);
+        } catch (Exception e) {
+            log.warn("Failed to save AI trace: {}", e.getMessage());
+        }
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "";
+        return text.length() > maxLength ? text.substring(0, maxLength) + "..." : text;
     }
 
     private String escape(String s) {
