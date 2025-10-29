@@ -1,22 +1,24 @@
 # Rehab AI Platform (Monorepo)
 
-Plataforma de prescrição personalizada de exercícios de reabilitação. Arquitetura de microsserviços com Spring Boot 3.5.x, Spring Cloud Gateway, PostgreSQL, RabbitMQ e observabilidade (Prometheus/Grafana).
+Plataforma de prescrição personalizada de exercícios de reabilitação. Arquitetura de microsserviços com Spring Boot 3.5.x, Spring Cloud Gateway, PostgreSQL, RabbitMQ e observabilidade (Prometheus/Grafana + OpenTelemetry/Jaeger).
 
 ## Componentes
-- API Gateway (porta 8080): roteamento, CORS, ponto central de autenticação.
-- Auth Service (porta 8081): usuários, login/registro, emissão de JWT HS256.
-- Patient Service (porta 8082): CRUD de pacientes (skeleton).
-- File Service (porta 8083): upload/armazenamento S3, eventos RabbitMQ (skeleton).
-- Prescription Service (porta 8084): orquestração IA e pipeline (skeleton).
-- Plan Service (porta 8085): versionamento/auditoria de planos (skeleton).
-- Notification Service (porta 8086): e-mail/push e consumo de eventos (skeleton).
+- API Gateway (porta 8080): roteamento, CORS, validação de JWT HS256, ponto de entrada único.
+- Auth Service (porta 8081): registro/login de usuários e emissão de JWT HS256.
+- User Service (porta 8082): CRUD de usuários (PATIENT, CLINICIAN, ADMIN) — substitui o antigo patient-service.
+- File Service (porta 8083): upload/armazenamento S3, publica eventos RabbitMQ.
+- Prescription Service (porta 8084): pipeline OCR/LLM, normalização, guarda estágios.
+- Notification Service (porta 8085): e-mail/push e consumo de eventos.
+- Plan Service (porta 8086): versionamento/auditoria de planos e integração com User Service.
 
 ## Execução (Docker Compose)
-Pré-requisitos: Docker e Docker Compose instalados.
+Pré-requisitos: Docker e Docker Compose instalados. Copie `.env.example` para `.env` e ajuste segredos/credenciais.
 
 ```zsh
 # Na raiz do repositório
-docker compose up --build
+cp -n .env.example .env
+# Suba toda a stack usando as variáveis do .env
+docker compose --env-file .env up -d --build
 ```
 
 - Postgres em 5432
@@ -24,27 +26,31 @@ docker compose up --build
 - Gateway em http://localhost:8080
 - Prometheus em http://localhost:9090
 - Grafana em http://localhost:3000 (admin/admin)
+- Jaeger UI em http://localhost:16686
 
-O Gateway usa `application-docker.yml` (profile `docker`) para rotear por hostname dos containers.
+Observações:
+- O Gateway é protegido: exige JWT para qualquer rota que não seja `/auth/**` nem `/actuator/**`.
+- O roteamento usa variáveis de ambiente (padrões definidos em `docker-compose.yml`).
+- Prometheus coleta métricas em `/actuator/prometheus` para todos os serviços.
 
 ## Execução local (sem Docker)
-Cada serviço expõe uma porta distinta. Inicie primeiro o Auth Service (H2 em memória por padrão).
+Todos os serviços usam Postgres (veja `.env.example`), RabbitMQ e S3 (MinIO para dev). Inicie os serviços de infraestrutura ou use Docker para eles.
 
 ```zsh
-# Em terminais independentes
-(cd api-gateway && ./mvnw spring-boot:run)
-(cd auth-service && ./mvnw spring-boot:run)
-(cd patient-service && ./mvnw spring-boot:run)
-(cd file-service && ./mvnw spring-boot:run)
-(cd prescription-service && ./mvnw spring-boot:run)
-(cd plan-service && ./mvnw spring-boot:run)
-(cd notification-service && ./mvnw spring-boot:run)
+# Em terminais independentes (necessário ter Postgres, RabbitMQ e MinIO rodando)
+(cd api-gateway && mvn spring-boot:run)
+(cd auth-service && mvn spring-boot:run)
+(cd user-service && mvn spring-boot:run)
+(cd file-service && mvn spring-boot:run)
+(cd prescription-service && mvn spring-boot:run)
+(cd plan-service && mvn spring-boot:run)
+(cd notification-service && mvn spring-boot:run)
 ```
 
 ## Autenticação
-- Auth Service emite tokens HS256 (segredo: `auth.jwt.secret` em `auth-service/src/main/resources/application.properties`).
-- O Gateway, por enquanto, apenas encaminha o header `Authorization` e não valida JWT. Recomenda-se ativar validação no Gateway via `spring-boot-starter-oauth2-resource-server` e `jwk-set-uri` ou chave simétrica compartilhada.
+- Auth Service emite tokens HS256 (`auth.jwt.secret`).
+- O Gateway valida o JWT com a mesma chave simétrica e bloqueia acesso não autenticado.
 
 ## Observabilidade
-- Todos os serviços possuem Actuator. O Prometheus coleta em `/actuator/prometheus`.
-- As portas alvo estão em `monitoring/prometheus.yml`.
+- Actuator habilitado; Prometheus coleta `/actuator/prometheus` conforme `monitoring/prometheus.yml`.
+- OpenTelemetry exporta traces para o Collector (OTLP gRPC), visualizados no Jaeger.
