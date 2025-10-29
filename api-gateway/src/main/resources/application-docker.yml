@@ -8,10 +8,10 @@ spring:
           uri: http://auth-service:8081
           predicates:
             - Path=/auth/**
-        - id: patient-service
-          uri: http://patient-service:8082
+        - id: user-service
+          uri: http://user-service:8082
           predicates:
-            - Path=/patients/**
+            - Path=/users/**
         - id: file-service
           uri: http://file-service:8083
           predicates:
