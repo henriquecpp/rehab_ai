@@ -6,7 +6,8 @@
 
     <groupId>com.rehabai</groupId> <artifactId>rehab-ai-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>pom</packaging> <modules>
+    <packaging>pom</packaging>
+    <modules>
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>file-service</module>
@@ -14,6 +15,7 @@
         <module>patient-service</module>
         <module>plan-service</module>
         <module>prescription-service</module>
+        <module>user-service</module>
     </modules>
 
 </project>
