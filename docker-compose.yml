@@ -66,7 +66,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-my-secret-key}
       SERVER_PORT: 8080
       AUTH_SERVICE_URL: http://auth-service:8081
-      PATIENT_SERVICE_URL: http://patient-service:8082
+      USER_SERVICE_URL: http://user-service:8082
+      PATIENT_SERVICE_URL: http://patient-service:8087
       FILE_SERVICE_URL: http://file-service:8083
       PRESCRIPTION_SERVICE_URL: http://prescription-service:8084
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
@@ -102,11 +103,11 @@ services:
       - rehab-network
 
   # ===============================
-  # Patient Service
+  # User Service
   # ===============================
-  patient-service:
-    build: ./patient-service
-    container_name: patient-service
+  user-service:
+    build: ./user-service
+    container_name: user-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -219,6 +220,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      USER_SERVICE_URL: http://user-service:8082
     depends_on:
       - db
     networks:
@@ -251,6 +253,34 @@ services:
       - rehab-network
 
   # ===============================
+  # Patient Service
+  # ===============================
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
+      SPRING_PROFILES_ACTIVE: docker
+      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      USER_SERVICE_URL: http://user-service:8082
+    depends_on:
+      - db
+      - rabbitmq
+    networks:
+      - rehab-network
+    ports:
+      - "8087:8087"
+
+  # ===============================
   # PROMETHEUS
   # ===============================
   prometheus:
@@ -265,6 +295,7 @@ services:
     depends_on:
       - api-gateway
       - auth-service
+      - user-service
       - patient-service
       - file-service
       - prescription-service
