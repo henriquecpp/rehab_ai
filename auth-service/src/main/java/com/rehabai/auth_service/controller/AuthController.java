@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -38,13 +39,11 @@ public class AuthController {
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         try {
             userService.registerNewUser(req);
-            // Build user for token
             UserDetails ud = userService.loadUserByUsername(req.email());
-            String token = jwtUtil.generateToken(ud);
+            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
+            String token = jwtUtil.generateToken(ud, Map.of("user_id", u.id().toString()));
             long expiresIn = jwtUtil.getExpirationMs();
 
-            // Issue refresh token
-            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
             var rt = refreshTokenService.issueForUser(u.id());
             long refreshExpiresIn = refreshTokenService.getRefreshExpirationMs();
 
@@ -66,11 +65,10 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("invalid_credentials");
             }
 
-            String token = jwtUtil.generateToken(ud);
+            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
+            String token = jwtUtil.generateToken(ud, Map.of("user_id", u.id().toString()));
             long expiresIn = jwtUtil.getExpirationMs();
 
-            // Issue refresh token
-            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
             var rt = refreshTokenService.issueForUser(u.id());
             long refreshExpiresIn = refreshTokenService.getRefreshExpirationMs();
 
@@ -85,10 +83,9 @@ public class AuthController {
         try {
             UUID tokenId = UUID.fromString(req.refreshToken());
             var newRt = refreshTokenService.rotate(tokenId);
-            // Build a new access token using the user
             UserServiceClient.UserResponse u = userService.getUserById(newRt.getUserId());
             UserDetails ud = userService.buildUserDetailsFrom(u);
-            String token = jwtUtil.generateToken(ud);
+            String token = jwtUtil.generateToken(ud, Map.of("user_id", u.id().toString()));
             long expiresIn = jwtUtil.getExpirationMs();
             long refreshExpiresIn = refreshTokenService.getRefreshExpirationMs();
 
