@@ -40,23 +40,28 @@ public class JwtUtil {
     }
 
     public String generateToken(UserDetails userDetails) {
+        return generateToken(userDetails, Map.of());
+    }
+
+    public String generateToken(UserDetails userDetails, Map<String, Object> extraClaims) {
         Instant now = Instant.now();
         Instant exp = now.plusMillis(expirationMs);
 
         List<String> roles = userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .subject(userDetails.getUsername())
                 .issuedAt(now)
                 .expiresAt(exp)
-                .claim("roles", roles)
-                .build();
+                .claim("roles", roles);
 
+        if (extraClaims != null) {
+            extraClaims.forEach(builder::claim);
+        }
 
+        JwtClaimsSet claims = builder.build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
-
         JwtEncoderParameters encoderParameters = JwtEncoderParameters.from(header, claims);
-
         return this.encoder.encode(encoderParameters).getTokenValue();
     }
 
