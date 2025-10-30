@@ -2,8 +2,6 @@ package com.rehabai.auth_service.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 import lombok.Getter;
@@ -22,19 +20,21 @@ public class User {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "username", nullable = false, unique = true, length = 100)
-    private String username;
-
-    @Column(name = "email", nullable = false, unique = true, length = 255)
+    @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
     private String password;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
-    private Set<String> roles = new HashSet<>();
+    @Column(name = "full_name", length = 150)
+    private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private UserRole role = UserRole.PATIENT;
+
+    @Column(name = "active")
+    private Boolean active = true;
 
     @Column(name = "created_at")
     private Instant createdAt;
