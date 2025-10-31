@@ -4,6 +4,7 @@ import com.rehabai.auth_service.dto.AuthResponse;
 import com.rehabai.auth_service.dto.LoginRequest;
 import com.rehabai.auth_service.dto.RefreshRequest;
 import com.rehabai.auth_service.dto.RegisterRequest;
+import com.rehabai.auth_service.dto.LogoutRequest;
 import com.rehabai.auth_service.security.JwtUtil;
 import com.rehabai.auth_service.service.RefreshTokenService;
 import com.rehabai.auth_service.service.UserService;
@@ -96,6 +97,34 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("expired_refresh_token");
             }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("invalid_refresh_token");
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest req) {
+        try {
+            UUID tokenId = UUID.fromString(req.refreshToken());
+            refreshTokenService.revokeToken(tokenId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    @PostMapping("/logout_all")
+    public ResponseEntity<Void> logoutAll(@RequestHeader(name = "Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String token = authHeader.substring(7);
+        try {
+            String userIdStr = jwtUtil.getClaimAsString(token, "user_id");
+            if (userIdStr == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            UUID userId = UUID.fromString(userIdStr);
+            refreshTokenService.revokeAllForUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }
 }
