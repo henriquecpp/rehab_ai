@@ -93,6 +93,12 @@ public class JwtUtil {
         return List.of();
     }
 
+    public String getClaimAsString(String token, String claimName) {
+        Jwt jwt = decoder.decode(token);
+        Object v = jwt.getClaims().get(claimName);
+        return v != null ? v.toString() : null;
+    }
+
     public long getExpirationMs() {
         return expirationMs;
     }
