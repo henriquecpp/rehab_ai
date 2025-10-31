@@ -3,8 +3,6 @@ package com.rehabai.auth_service.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Instant;
-
 @Entity
 @Table(name = "oauth_clients")
 @Getter
@@ -30,11 +28,4 @@ public class OAuthClient {
 
     @Column(name = "redirect_uris", length = 500)
     private String redirectUris;
-
-    @Column(name = "enabled")
-    private Boolean enabled = true;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
 }
-
