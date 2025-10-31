@@ -11,6 +11,9 @@ public class IngestionFile {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
     @Column(name = "original_name", length = 255)
     private String originalName;
 
@@ -36,6 +39,8 @@ public class IngestionFile {
     @PreUpdate
     public void onUpdate() { this.updatedAt = OffsetDateTime.now(); }
 
+    public UUID getUserId() { return userId; }
+    public void setUserId(UUID userId) { this.userId = userId; }
     // getters/setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
