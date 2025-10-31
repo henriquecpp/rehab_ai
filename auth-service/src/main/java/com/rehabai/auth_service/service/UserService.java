@@ -1,8 +1,7 @@
 package com.rehabai.auth_service.service;
 
 import com.rehabai.auth_service.dto.RegisterRequest;
-import com.rehabai.auth_service.model.User;
-import com.rehabai.auth_service.repository.UserRepository;
+import com.rehabai.auth_service.model.UserRole;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,60 +9,74 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 public class UserService implements UserDetailsService {
 
-    private final UserRepository userRepository;
+    private final UserServiceClient userClient;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
+    public UserService(UserServiceClient userClient, PasswordEncoder passwordEncoder) {
+        this.userClient = userClient;
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Transactional
-    public User registerNewUser(RegisterRequest req) {
-        if (userRepository.existsByUsername(req.username())) {
-            throw new IllegalArgumentException("username_exists");
-        }
-        if (userRepository.existsByEmail(req.email())) {
+    public void registerNewUser(RegisterRequest req) {
+        String passwordHash = passwordEncoder.encode(req.password());
+        UserRole role = req.role() != null ? req.role() : UserRole.PATIENT;
+        UserServiceClient.CreateUserRequest createReq = new UserServiceClient.CreateUserRequest(
+                req.email(), req.fullName(), passwordHash, role
+        );
+        try {
+            userClient.createUser(createReq);
+        } catch (HttpClientErrorException.BadRequest ex) {
+            // Map "email já cadastrado" or similar to a domain error code used by controller
             throw new IllegalArgumentException("email_exists");
         }
-
-        User u = new User();
-        u.setUsername(req.username());
-        u.setEmail(req.email());
-        u.setPassword(passwordEncoder.encode(req.password()));
-        u.setRoles(Set.of("ROLE_USER"));
-
-        return userRepository.save(u);
-    }
-
-    public Optional<User> findByUsername(String username) {
-        return userRepository.findByUsername(username);
     }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        try {
+            UserServiceClient.CredentialsResponse creds = userClient.getCredentialsByEmail(username);
+            List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + creds.role().name()));
+            boolean disabled = creds.active() != null && !creds.active();
+            return org.springframework.security.core.userdetails.User.withUsername(creds.email())
+                    .password(creds.passwordHash() != null ? creds.passwordHash() : "")
+                    .authorities(authorities)
+                    .accountExpired(false)
+                    .accountLocked(false)
+                    .credentialsExpired(false)
+                    .disabled(disabled)
+                    .build();
+        } catch (HttpClientErrorException.NotFound ex) {
+            throw new UsernameNotFoundException("User not found");
+        }
+    }
 
-        List<GrantedAuthority> authorities = user.getRoles().stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
+    // Helpers for refresh-token flow
+    public UserServiceClient.UserResponse getUserByEmail(String email) {
+        return userClient.getByEmail(email);
+    }
 
-        return org.springframework.security.core.userdetails.User.withUsername(user.getUsername())
-                .password(user.getPassword())
+    public UserServiceClient.UserResponse getUserById(UUID id) {
+        return userClient.getById(id);
+    }
+
+    public UserDetails buildUserDetailsFrom(UserServiceClient.UserResponse u) {
+        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + u.role().name()));
+        boolean disabled = u.active() != null && !u.active();
+        return org.springframework.security.core.userdetails.User.withUsername(u.email())
+                .password("")
                 .authorities(authorities)
                 .accountExpired(false)
                 .accountLocked(false)
                 .credentialsExpired(false)
-                .disabled(false)
+                .disabled(disabled)
                 .build();
     }
 }
-
