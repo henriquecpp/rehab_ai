@@ -1,11 +1,21 @@
 package com.rehabai.file_service.model;
 
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "ingestion_files")
+@Table(name = "ingestion_files", indexes = {
+        @Index(name = "idx_ingestion_user", columnList = "user_id")
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@EqualsAndHashCode(of = "id")
 public class IngestionFile {
     @Id
     @GeneratedValue
@@ -38,25 +48,4 @@ public class IngestionFile {
 
     @PreUpdate
     public void onUpdate() { this.updatedAt = OffsetDateTime.now(); }
-
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-    // getters/setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public String getOriginalName() { return originalName; }
-    public void setOriginalName(String originalName) { this.originalName = originalName; }
-    public String getS3Path() { return s3Path; }
-    public void setS3Path(String s3Path) { this.s3Path = s3Path; }
-    public FileStatus getStatus() { return status; }
-    public void setStatus(FileStatus status) { this.status = status; }
-    public Long getSizeBytes() { return sizeBytes; }
-    public void setSizeBytes(Long sizeBytes) { this.sizeBytes = sizeBytes; }
-    public String getHashSha256() { return hashSha256; }
-    public void setHashSha256(String hashSha256) { this.hashSha256 = hashSha256; }
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
-    public OffsetDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
-
