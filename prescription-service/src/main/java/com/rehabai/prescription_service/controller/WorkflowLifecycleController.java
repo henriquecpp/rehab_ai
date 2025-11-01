@@ -4,7 +4,9 @@ import com.rehabai.prescription_service.model.WorkflowRun;
 import com.rehabai.prescription_service.model.WorkflowStage;
 import com.rehabai.prescription_service.model.WorkflowStatus;
 import com.rehabai.prescription_service.repository.WorkflowRunRepository;
-import jakarta.validation.constraints.NotNull;
+import com.rehabai.prescription_service.dto.StartRequest;
+import com.rehabai.prescription_service.dto.AdvanceRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,15 +16,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/prescriptions/workflows")
+@RequiredArgsConstructor
 public class WorkflowLifecycleController {
 
     private final WorkflowRunRepository runRepo;
-
-    public WorkflowLifecycleController(WorkflowRunRepository runRepo) {
-        this.runRepo = runRepo;
-    }
-
-    public record StartRequest(@NotNull UUID userId, @NotNull UUID fileId, String traceId) {}
 
     @PostMapping
     public ResponseEntity<WorkflowRun> start(@RequestBody StartRequest req) {
@@ -35,8 +32,6 @@ public class WorkflowLifecycleController {
         WorkflowRun saved = runRepo.save(run);
         return ResponseEntity.created(URI.create("/prescriptions/workflows/" + saved.getId())).body(saved);
     }
-
-    public record AdvanceRequest(@NotNull WorkflowStage stage) {}
 
     @PostMapping("/{id}/advance")
     public ResponseEntity<?> advance(@PathVariable UUID id, @RequestBody AdvanceRequest req) {
@@ -83,4 +78,3 @@ public class WorkflowLifecycleController {
         return ResponseEntity.ok(run);
     }
 }
-

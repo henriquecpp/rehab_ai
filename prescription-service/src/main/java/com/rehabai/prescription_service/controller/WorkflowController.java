@@ -2,6 +2,7 @@ package com.rehabai.prescription_service.controller;
 
 import com.rehabai.prescription_service.model.*;
 import com.rehabai.prescription_service.repository.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/prescriptions")
+@RequiredArgsConstructor
 public class WorkflowController {
 
     private final WorkflowRunRepository runRepo;
@@ -18,18 +20,6 @@ public class WorkflowController {
     private final NormalizationRepository normalizationRepo;
     private final PrescriptionRepository prescriptionRepo;
     private final AiTraceRepository aiTraceRepo;
-
-    public WorkflowController(WorkflowRunRepository runRepo,
-                              ExtractionRepository extractionRepo,
-                              NormalizationRepository normalizationRepo,
-                              PrescriptionRepository prescriptionRepo,
-                              AiTraceRepository aiTraceRepo) {
-        this.runRepo = runRepo;
-        this.extractionRepo = extractionRepo;
-        this.normalizationRepo = normalizationRepo;
-        this.prescriptionRepo = prescriptionRepo;
-        this.aiTraceRepo = aiTraceRepo;
-    }
 
     @GetMapping("/workflows/latest")
     public ResponseEntity<?> latestWorkflow(@RequestParam UUID fileId) {

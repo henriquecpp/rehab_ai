@@ -3,6 +3,7 @@ package com.rehabai.auth_service.controller;
 import com.rehabai.auth_service.model.OAuthClient;
 import com.rehabai.auth_service.repository.OAuthClientRepository;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -13,13 +14,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/oauth/clients")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class OAuthClientAdminController {
 
     private final OAuthClientRepository repo;
-
-    public OAuthClientAdminController(OAuthClientRepository repo) {
-        this.repo = repo;
-    }
 
     @GetMapping
     public ResponseEntity<List<OAuthClient>> list() {
@@ -60,4 +58,3 @@ public class OAuthClientAdminController {
         return ResponseEntity.noContent().build();
     }
 }
-

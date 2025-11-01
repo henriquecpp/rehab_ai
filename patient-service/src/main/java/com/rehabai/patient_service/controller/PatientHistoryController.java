@@ -3,6 +3,7 @@ package com.rehabai.patient_service.controller;
 import com.rehabai.patient_service.dto.PatientDtos;
 import com.rehabai.patient_service.service.PatientHistoryService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,13 +12,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/patients/{userId}")
+@RequiredArgsConstructor
 public class PatientHistoryController {
 
     private final PatientHistoryService service;
-
-    public PatientHistoryController(PatientHistoryService service) {
-        this.service = service;
-    }
 
     // Notes
     @PostMapping("/history/notes")
