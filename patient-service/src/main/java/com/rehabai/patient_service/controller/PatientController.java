@@ -3,6 +3,7 @@ package com.rehabai.patient_service.controller;
 import com.rehabai.patient_service.dto.PatientDtos;
 import com.rehabai.patient_service.service.PatientService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -13,13 +14,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/patients")
+@RequiredArgsConstructor
 public class PatientController {
 
     private final PatientService service;
-
-    public PatientController(PatientService service) {
-        this.service = service;
-    }
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {

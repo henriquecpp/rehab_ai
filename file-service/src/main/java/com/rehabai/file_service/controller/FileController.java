@@ -5,6 +5,7 @@ import com.rehabai.file_service.model.FileStatus;
 import com.rehabai.file_service.model.IngestionFile;
 import com.rehabai.file_service.service.AnonymizationLogService;
 import com.rehabai.file_service.service.StorageService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,15 +24,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/files")
+@RequiredArgsConstructor
 public class FileController {
 
     private final StorageService storageService;
     private final AnonymizationLogService anonymizationLogService;
-
-    public FileController(StorageService storageService, AnonymizationLogService anonymizationLogService) {
-        this.storageService = storageService;
-        this.anonymizationLogService = anonymizationLogService;
-    }
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
