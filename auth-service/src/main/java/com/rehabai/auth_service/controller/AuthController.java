@@ -10,6 +10,7 @@ import com.rehabai.auth_service.service.RefreshTokenService;
 import com.rehabai.auth_service.service.UserService;
 import com.rehabai.auth_service.service.UserServiceClient;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,20 +22,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
-
-    public AuthController(UserService userService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                          RefreshTokenService refreshTokenService) {
-        this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
-        this.refreshTokenService = refreshTokenService;
-    }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
