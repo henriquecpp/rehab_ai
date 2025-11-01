@@ -4,6 +4,8 @@ import com.rehabai.file_service.events.FileUploadedEvent;
 import com.rehabai.file_service.model.IngestionFile;
 import com.rehabai.file_service.model.FileStatus;
 import com.rehabai.file_service.repository.IngestionFileRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,45 +23,34 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class StorageService {
 
     private final S3Client s3;
     private final IngestionFileRepository repo;
     private final RabbitTemplate rabbit;
     private final DirectExchange exchange;
-    private final String bucket;
-    private final String routingKeyUploaded;
     private final AnonymizationLogService anonymizationLogService;
 
-    public StorageService(S3Client s3,
-                          IngestionFileRepository repo,
-                          RabbitTemplate rabbit,
-                          DirectExchange exchange,
-                          @Value("${s3.bucket}") String bucket,
-                          @Value("${amqp.routingKeyUploaded:file.uploaded}") String routingKeyUploaded,
-                          AnonymizationLogService anonymizationLogService) {
-        this.s3 = s3;
-        this.repo = repo;
-        this.rabbit = rabbit;
-        this.exchange = exchange;
-        this.bucket = bucket;
-        this.routingKeyUploaded = routingKeyUploaded;
-        this.anonymizationLogService = anonymizationLogService;
-    }
+    @Value("${s3.bucket}")
+    private String bucket;
+
+    @Value("${amqp.routingKeyUploaded:file.uploaded}")
+    private String routingKeyUploaded;
 
     public IngestionFile upload(MultipartFile file, UUID userId) throws IOException {
         String original = file.getOriginalFilename();
         String key = "uploads/" + UUID.randomUUID() + (original != null ? ("_" + original) : "");
 
-        // upload to S3
         PutObjectRequest put = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
                 .contentType(file.getContentType())
                 .build();
         s3.putObject(put, RequestBody.fromBytes(file.getBytes()));
+        log.info("Arquivo enviado ao S3. Chave: {}", key);
 
-        // persist metadata
         IngestionFile ent = new IngestionFile();
         ent.setUserId(userId);
         ent.setOriginalName(original);
@@ -69,9 +60,9 @@ public class StorageService {
         ent.setHashSha256(sha256(file.getBytes()));
         IngestionFile saved = repo.save(ent);
 
-        // publish event
         FileUploadedEvent evt = new FileUploadedEvent(saved.getId(), bucket, key, original, file.getSize(), saved.getHashSha256());
         rabbit.convertAndSend(exchange.getName(), routingKeyUploaded, evt);
+        log.info("Evento FileUploadedEvent publicado para o arquivo ID: {}", saved.getId());
 
         return saved;
     }
@@ -89,13 +80,12 @@ public class StorageService {
                     .destinationKey(anonymizedKey)
                     .build();
             s3.copyObject(copyReq);
+            log.info("Arquivo copiado para o local pseudonimizado: {}", anonymizedKey);
 
-            // update file metadata
             String oldPath = file.getS3Path();
             file.setS3Path(anonymizedKey);
             String oldName = file.getOriginalName();
             if (oldName != null) {
-                // mask original name
                 file.setOriginalName("[REDACTED]");
                 anonymizationLogService.add(fileId, "mask_original_name", "original_name");
             }
@@ -104,6 +94,7 @@ public class StorageService {
 
             return repo.save(file);
         } catch (S3Exception e) {
+            log.error("Falha ao pseudonimizar o arquivo {}: {}", fileId, e.getMessage(), e);
             file.setStatus(FileStatus.ERROR);
             repo.save(file);
             anonymizationLogService.add(fileId, "pseudonymize_error", e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage());
@@ -111,7 +102,6 @@ public class StorageService {
         }
     }
 
-    // New helper methods
     public IngestionFile get(UUID id) {
         return repo.findById(id).orElseThrow(() -> new IllegalArgumentException("file_not_found"));
     }
@@ -135,10 +125,12 @@ public class StorageService {
         IngestionFile file = get(id);
         try {
             s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(file.getS3Path()).build());
+            log.info("Arquivo deletado do S3: {}", file.getS3Path());
         } catch (S3Exception e) {
-            // ignore if not found in S3, proceed to delete metadata
+            log.warn("Arquivo não encontrado no S3 durante a exclusão, mas continuando para excluir metadados. Chave: {}", file.getS3Path(), e);
         }
         repo.deleteById(id);
+        log.info("Metadados do arquivo deletados do banco de dados: {}", id);
     }
 
     private String sha256(byte[] data) {
@@ -147,6 +139,7 @@ public class StorageService {
             byte[] digest = md.digest(data);
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
+            log.error("FATAL: Algoritmo SHA-256 não está disponível.", e);
             throw new IllegalStateException("SHA-256 not available", e);
         }
     }
