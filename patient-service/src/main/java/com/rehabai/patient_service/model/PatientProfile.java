@@ -40,10 +40,18 @@ public class PatientProfile {
     private String notes;
 
     @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+    private OffsetDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt = OffsetDateTime.now();
+    private OffsetDateTime updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        if (createdAt == null) {
+            createdAt = OffsetDateTime.now();
+        }
+        updatedAt = OffsetDateTime.now();
+    }
 
     @PreUpdate
     public void onUpdate() {
