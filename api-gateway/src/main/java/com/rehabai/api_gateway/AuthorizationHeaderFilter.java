@@ -1,33 +1,27 @@
 package com.rehabai.api_gateway;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 
 /**
- * Simple servlet filter that ensures the Authorization header is present and can be logged or modified.
- * This filter does not remove or mutate the header; it just ensures it's available for downstream services.
+ * WebFlux filter that logs the presence of the Authorization header.
+ * It does not mutate the header; it only ensures it is available downstream.
  */
-@Component
-public class AuthorizationHeaderFilter extends OncePerRequestFilter {
+//@Component // deliberadamente não registrado: oauth2-resource-server já extrai/valida o Bearer token
+public class AuthorizationHeaderFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuthorizationHeaderFilter.class);
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String auth = request.getHeader("Authorization");
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        String auth = exchange.getRequest().getHeaders().getFirst("Authorization");
         if (auth != null && !auth.isEmpty()) {
-            // Optionally, you could validate format or log
             log.debug("Authorization header present, length={}", auth.length());
         }
-        filterChain.doFilter(request, response);
+        return chain.filter(exchange);
     }
 }
-
