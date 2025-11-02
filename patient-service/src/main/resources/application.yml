@@ -5,9 +5,16 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:db}:${DB_PORT:5432}/${DB_NAME:rehabdb}}
     username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:postgres}}
     password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:1234}}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${DDL_AUTO:update}
+      naming:
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:rabbitmq}
@@ -16,7 +23,7 @@ spring:
     password: ${RABBITMQ_PASS:guest}
 
 server:
-  port: ${SERVER_PORT:8082}
+  port: ${SERVER_PORT:8087}
 
 management:
   endpoints:
@@ -35,3 +42,7 @@ management:
 auth:
   jwt:
     secret: ${JWT_SECRET:my-secret-key}
+
+user:
+  service:
+    url: ${USER_SERVICE_URL:http://user-service:8082}
