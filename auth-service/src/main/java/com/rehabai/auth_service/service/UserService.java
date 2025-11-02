@@ -79,4 +79,8 @@ public class UserService implements UserDetailsService {
                 .disabled(disabled)
                 .build();
     }
+
+    public boolean noAdminsExist() {
+        return !userClient.anyAdmin();
+    }
 }
