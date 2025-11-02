@@ -8,7 +8,8 @@ scrape_configs:
       - targets:
           - "api-gateway:8080"
           - "auth-service:8081"
-          - "patient-service:8082"
+          - "user-service:8082"
+          - "patient-service:8087"
           - "file-service:8083"
           - "prescription-service:8084"
           - "notification-service:8085"
