@@ -85,10 +85,17 @@ public class PlanService {
         Plan plan = planRepo.findById(planId)
             .orElseThrow(() -> new IllegalArgumentException("Plan not found: " + planId));
 
-        String oldData = plan.getPlanData();
-        plan.setPlanData(request.planData());
+        if (request.planData() != null && plan.getStatus() != PlanStatus.DRAFT) {
+            throw new IllegalStateException("cannot_edit_non_draft");
+        }
 
-        if (request.status() != null) {
+        String oldData = plan.getPlanData();
+        if (request.planData() != null) {
+            plan.setPlanData(request.planData());
+        }
+
+        if (request.status() != null && request.status() != plan.getStatus()) {
+            enforceTransition(plan.getStatus(), request.status());
             plan.setStatus(request.status());
             if (request.status() == PlanStatus.APPROVED) {
                 planApproved.increment();
@@ -99,12 +106,19 @@ public class PlanService {
         planUpdated.increment();
 
         // Calcular diff e registrar auditoria
-        String diff = calculateDiff(oldData, request.planData());
+        String diff = calculateDiff(oldData, plan.getPlanData());
         logAudit(plan.getId(), changedBy, request.reason(), diff);
 
         log.info("Plan updated: id={}, status={}", plan.getId(), plan.getStatus());
 
         return toResponse(plan);
+    }
+
+    private void enforceTransition(PlanStatus current, PlanStatus next) {
+        if (current == PlanStatus.DRAFT && (next == PlanStatus.APPROVED || next == PlanStatus.ARCHIVED)) return;
+        if (current == PlanStatus.APPROVED && next == PlanStatus.ARCHIVED) return;
+        if (current == next) return;
+        throw new IllegalStateException("invalid_status_transition:" + current + "->" + next);
     }
 
     @Transactional(readOnly = true)
@@ -157,6 +171,45 @@ public class PlanService {
     public PlanResponse archivePlan(UUID planId, UUID archivedBy, String reason) {
         UpdatePlanRequest request = new UpdatePlanRequest(null, PlanStatus.ARCHIVED, reason);
         return updatePlan(planId, archivedBy, request);
+    }
+
+    @Transactional
+    public PlanResponse createNewVersion(UUID basePlanId, UUID changedBy, String reason) {
+        Plan base = planRepo.findById(basePlanId)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found: " + basePlanId));
+        Integer maxVersion = planRepo.findMaxVersionByUserAndPrescription(base.getUserId(), base.getPrescriptionId());
+        int nextVersion = (maxVersion == null) ? 1 : maxVersion + 1;
+        Plan clone = new Plan();
+        clone.setUserId(base.getUserId());
+        clone.setPrescriptionId(base.getPrescriptionId());
+        clone.setVersion(nextVersion);
+        clone.setPlanData(base.getPlanData());
+        clone.setStatus(PlanStatus.DRAFT);
+        clone = planRepo.save(clone);
+        logAudit(clone.getId(), changedBy, reason != null ? reason : "New version created", "{}");
+        return toResponse(clone);
+    }
+
+    @Transactional
+    public PlanResponse rollbackToVersion(UUID planId, Integer toVersion, UUID changedBy, String reason) {
+        Plan current = planRepo.findById(planId)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found: " + planId));
+        if (toVersion == null || toVersion < 1) {
+            throw new IllegalArgumentException("invalid_target_version");
+        }
+        Plan target = planRepo.findByUserIdAndPrescriptionIdAndVersion(current.getUserId(), current.getPrescriptionId(), toVersion)
+                .orElseThrow(() -> new IllegalArgumentException("target_version_not_found:" + toVersion));
+        Integer maxVersion = planRepo.findMaxVersionByUserAndPrescription(current.getUserId(), current.getPrescriptionId());
+        int nextVersion = (maxVersion == null) ? 1 : maxVersion + 1;
+        Plan clone = new Plan();
+        clone.setUserId(current.getUserId());
+        clone.setPrescriptionId(current.getPrescriptionId());
+        clone.setVersion(nextVersion);
+        clone.setPlanData(target.getPlanData());
+        clone.setStatus(PlanStatus.DRAFT);
+        clone = planRepo.save(clone);
+        logAudit(clone.getId(), changedBy, reason != null ? reason : ("Rollback to version " + toVersion), "{}");
+        return toResponse(clone);
     }
 
     private void logAudit(UUID planId, UUID changedBy, String reason, String diff) {
