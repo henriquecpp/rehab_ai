@@ -23,7 +23,7 @@ services:
   # Mensageria (RabbitMQ)
   # ===============================
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4.2-management
     container_name: rehab-rabbit
     restart: always
     environment:
@@ -43,8 +43,9 @@ services:
     container_name: rehab-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      # MinIO root user + password will be driven by S3_* envs so services can use S3_ACCESS_KEY_ID/SECRET
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -63,7 +64,7 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       SERVER_PORT: 8080
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
@@ -78,6 +79,7 @@ services:
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
     depends_on:
       - auth-service
+      - otel-collector
     networks:
       - rehab-network
 
@@ -91,14 +93,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       SPRING_PROFILES_ACTIVE: docker
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_TIMEOUT: 30000
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      SERVER_PORT: 8081
+      USER_SERVICE_URL: http://user-service:8082
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
+      - user-service
+      - otel-collector
     networks:
       - rehab-network
 
@@ -117,13 +127,16 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
       SPRING_PROFILES_ACTIVE: docker
-      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      SERVER_PORT: 8082
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
       - rabbitmq
+      - otel-collector
     networks:
       - rehab-network
 
@@ -140,21 +153,25 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      # Use dedicated S3_* envs for MinIO access locally
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_BUCKET: ${S3_BUCKET:-rehab-files}
-      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
       SPRING_PROFILES_ACTIVE: docker
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      SERVER_PORT: 8083
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
       - rabbitmq
       - minio
+      - otel-collector
     networks:
       - rehab-network
 
@@ -171,8 +188,9 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      # use MinIO locally via S3_* envs
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_BUCKET: ${S3_BUCKET:-rehab-files}
@@ -195,12 +213,18 @@ services:
       NORMALIZATION_USE_LLM: ${NORMALIZATION_USE_LLM:-false}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-5}
       OCR_TEXTRACT_USE_ANALYZE: ${OCR_TEXTRACT_USE_ANALYZE:-true}
+      SERVER_PORT: 8084
+      DDL_AUTO: ${DDL_AUTO:-update}
+      # Optional: provide real AWS credentials for Bedrock only (do NOT set these for local MinIO)
+      # BEDROCK_AWS_ACCESS_KEY_ID: ${BEDROCK_AWS_ACCESS_KEY_ID:}
+      # BEDROCK_AWS_SECRET_ACCESS_KEY: ${BEDROCK_AWS_SECRET_ACCESS_KEY:}
     volumes:
       - ./tessdata:/opt/tessdata:ro
     depends_on:
       - db
       - rabbitmq
       - minio
+      - otel-collector
     networks:
       - rehab-network
 
@@ -221,8 +245,10 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       USER_SERVICE_URL: http://user-service:8082
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
+      - otel-collector
     networks:
       - rehab-network
 
@@ -246,9 +272,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      SERVER_PORT: 8085
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
       - rabbitmq
+      - otel-collector
     networks:
       - rehab-network
 
@@ -267,14 +296,17 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
       SPRING_PROFILES_ACTIVE: docker
-      JWT_SECRET: ${JWT_SECRET:-my-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       USER_SERVICE_URL: http://user-service:8082
+      SERVER_PORT: 8087
+      DDL_AUTO: ${DDL_AUTO:-update}
     depends_on:
       - db
       - rabbitmq
+      - otel-collector
     networks:
       - rehab-network
     ports:
@@ -326,6 +358,8 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     ports:
       - "16686:16686" # Jaeger UI
       - "14250:14250" # gRPC
