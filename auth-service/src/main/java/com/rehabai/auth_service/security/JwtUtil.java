@@ -32,6 +32,19 @@ public class JwtUtil {
 
     public JwtUtil(@Value("${auth.jwt.secret}") String secret,
                    @Value("${auth.jwt.expiration-ms}") long expirationMs) {
+
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("JWT secret cannot be null or empty");
+        }
+
+        if (secret.length() < 32) {
+            throw new IllegalArgumentException(
+                "JWT secret must be at least 32 characters (256 bits) for HS256. " +
+                "Current length: " + secret.length() + " characters. " +
+                "SECURITY RISK: Short secrets are vulnerable to brute force attacks!"
+            );
+        }
+
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         SecretKey secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
         this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));
