@@ -34,7 +34,6 @@ public class UserService implements UserDetailsService {
         try {
             userClient.createUser(createReq);
         } catch (HttpClientErrorException.BadRequest ex) {
-            // Map "email já cadastrado" or similar to a domain error code used by controller
             throw new IllegalArgumentException("email_exists");
         }
     }
@@ -58,13 +57,16 @@ public class UserService implements UserDetailsService {
         }
     }
 
-    // Helpers for refresh-token flow
     public UserServiceClient.UserResponse getUserByEmail(String email) {
         return userClient.getByEmail(email);
     }
 
     public UserServiceClient.UserResponse getUserById(UUID id) {
         return userClient.getById(id);
+    }
+
+    public UserServiceClient.CredentialsResponse getCredentialsByEmail(String email) {
+        return userClient.getCredentialsByEmail(email);
     }
 
     public UserDetails buildUserDetailsFrom(UserServiceClient.UserResponse u) {
