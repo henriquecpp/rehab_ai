@@ -16,12 +16,14 @@ Serviço de envio de notificações por e-mail e eventos assíncronos.
 - `RABBITMQ_PASS` - Senha RabbitMQ (padrão: `guest`)
 
 ### E-mail (SMTP)
-- `SPRING_MAIL_HOST` - Host SMTP (padrão: `smtp.gmail.com`)
-- `SPRING_MAIL_PORT` - Porta SMTP (padrão: `587`)
-- `SPRING_MAIL_USERNAME` - Usuário e-mail (obrigatório)
-- `SPRING_MAIL_PASSWORD` - Senha e-mail (obrigatório)
-- `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` - Habilitar auth (padrão: `true`)
-- `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` - Habilitar TLS (padrão: `true`)
+> Variáveis usadas pelo serviço (defina em `.env` ou no ambiente do container):
+- `MAIL_HOST` - Host SMTP (padrão: `smtp.gmail.com`)
+- `MAIL_PORT` - Porta SMTP (padrão: `587`)
+- `MAIL_USER` - Usuário (endereço) do remetente — obrigatório
+- `MAIL_PASS` - Senha do remetente — obrigatório
+- `NOTIFICATION_TO` - (opcional) endereço padrão que recebe notificações; se vazio, `MAIL_USER` será usado
+
+> Observação: as variáveis `SPRING_MAIL_*` não são usadas diretamente aqui; a configuração do `application.yml` usa `MAIL_USER` e `MAIL_PASS`.
 
 ### Servidor
 - `SERVER_PORT` - Porta do serviço (padrão: `8085`)
@@ -47,4 +49,3 @@ O serviço pode consumir diversos eventos para enviar notificações, incluindo:
 - Arquivo processado
 - Plano aprovado
 - Prescrição gerada
-
