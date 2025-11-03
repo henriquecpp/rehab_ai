@@ -1,14 +1,12 @@
 package com.rehabai.user_service.controller;
 
+import com.rehabai.user_service.security.SecurityHelper;
 import com.rehabai.user_service.dto.ConsentDtos;
-import com.rehabai.user_service.dto.UserDtos;
 import com.rehabai.user_service.service.ConsentService;
-import com.rehabai.user_service.service.UserService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -16,22 +14,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Controller for user consent management (LGPD/GDPR compliance).
+ * Security handled by API Gateway (validates JWT and injects headers).
+ */
 @RestController
 @RequestMapping
+@RequiredArgsConstructor
 public class ConsentController {
 
     private final ConsentService service;
-    private final UserService userService;
-
-    public ConsentController(ConsentService service, UserService userService) {
-        this.service = service;
-        this.userService = userService;
-    }
+    private final SecurityHelper securityHelper;
 
     // Endpoints baseados em userId explícito
     @PostMapping("/users/{userId}/consents")
     public ResponseEntity<ConsentDtos.Response> create(@PathVariable UUID userId,
                                                        @Valid @RequestBody ConsentDtos.CreateRequest req) {
+        // Validate access: user can only manage their own consents
+        securityHelper.validateResourceAccess(userId);
         ConsentDtos.Response created = service.create(userId, req);
         return ResponseEntity.created(URI.create("/users/" + userId + "/consents/" + created.id())).body(created);
     }
@@ -39,6 +39,8 @@ public class ConsentController {
     @PostMapping("/users/{userId}/consents/revoke")
     public ResponseEntity<ConsentDtos.Response> revoke(@PathVariable UUID userId,
                                                        @Valid @RequestBody ConsentDtos.RevokeRequest req) {
+        // Validate access: user can only revoke their own consents
+        securityHelper.validateResourceAccess(userId);
         ConsentDtos.Response revoked = service.revoke(userId, req);
         return ResponseEntity.ok(revoked);
     }
@@ -46,48 +48,39 @@ public class ConsentController {
     @GetMapping("/users/{userId}/consents")
     public ResponseEntity<List<ConsentDtos.Response>> list(@PathVariable UUID userId,
                                                            @RequestParam(required = false) String type) {
+        // Validate access: user can only see their own consents
+        securityHelper.validateResourceAccess(userId);
         return ResponseEntity.ok(service.listByUser(userId, type));
     }
 
     @GetMapping("/users/{userId}/consents/latest")
     public ResponseEntity<ConsentDtos.Response> latest(@PathVariable UUID userId,
                                                        @RequestParam String type) {
+        // Validate access: user can only see their own consents
+        securityHelper.validateResourceAccess(userId);
         return ResponseEntity.ok(service.latestByType(userId, type));
     }
 
-    // Endpoints para o usuário autenticado (derivados do JWT)
+    // Endpoints para o usuário autenticado (usando X-User-Id header)
     @PostMapping("/users/me/consents")
-    public ResponseEntity<ConsentDtos.Response> createForMe(@AuthenticationPrincipal Jwt jwt,
-                                                            @Valid @RequestBody ConsentDtos.CreateRequest req) {
-        UUID userId = resolveUserId(jwt);
+    public ResponseEntity<ConsentDtos.Response> createForMe(@Valid @RequestBody ConsentDtos.CreateRequest req) {
+        UUID userId = securityHelper.getAuthenticatedUserId();
         ConsentDtos.Response created = service.create(userId, req);
         return ResponseEntity.created(URI.create("/users/me/consents/" + created.id())).body(created);
     }
 
     @PostMapping("/users/me/consents/revoke")
-    public ResponseEntity<ConsentDtos.Response> revokeForMe(@AuthenticationPrincipal Jwt jwt,
-                                                            @Valid @RequestBody ConsentDtos.RevokeRequest req) {
-        UUID userId = resolveUserId(jwt);
+    public ResponseEntity<ConsentDtos.Response> revokeForMe(@Valid @RequestBody ConsentDtos.RevokeRequest req) {
+        UUID userId = securityHelper.getAuthenticatedUserId();
         return ResponseEntity.ok(service.revoke(userId, req));
     }
 
     @GetMapping("/users/me/consents")
-    public ResponseEntity<List<ConsentDtos.Response>> listForMe(@AuthenticationPrincipal Jwt jwt,
-                                                                @RequestParam(required = false) String type) {
-        UUID userId = resolveUserId(jwt);
+    public ResponseEntity<List<ConsentDtos.Response>> listForMe(@RequestParam(required = false) String type) {
+        UUID userId = securityHelper.getAuthenticatedUserId();
         return ResponseEntity.ok(service.listByUser(userId, type));
     }
 
-    private UUID resolveUserId(Jwt jwt) {
-        Object uid = jwt.getClaim("user_id");
-        if (uid instanceof String s) {
-            try { return UUID.fromString(s); } catch (IllegalArgumentException ignored) {}
-        }
-        // Fallback: usar subject (email) e buscar usuário
-        String email = jwt.getSubject();
-        UserDtos.Response u = userService.getByEmail(email);
-        return u.id();
-    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
