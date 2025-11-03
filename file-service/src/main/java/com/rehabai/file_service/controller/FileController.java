@@ -1,5 +1,6 @@
 package com.rehabai.file_service.controller;
 
+import com.rehabai.file_service.security.SecurityHelper;
 import com.rehabai.file_service.model.AnonymizationLog;
 import com.rehabai.file_service.model.FileStatus;
 import com.rehabai.file_service.model.IngestionFile;
@@ -9,16 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,56 +24,54 @@ public class FileController {
 
     private final StorageService storageService;
     private final AnonymizationLogService anonymizationLogService;
+    private final SecurityHelper securityHelper;
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("ok");
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','CLINICIAN')")
     @PostMapping(value = "/upload", consumes = {"multipart/form-data"})
     public ResponseEntity<IngestionFile> upload(@RequestPart("file") MultipartFile file,
                                                 @RequestParam("userId") UUID userId) throws IOException {
+        securityHelper.requireClinician();
         IngestionFile saved = storageService.upload(file, userId);
         return ResponseEntity.ok(saved);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','CLINICIAN')")
     @PostMapping("/{id}/pseudonymize")
     public ResponseEntity<IngestionFile> pseudonymize(@PathVariable UUID id) {
+        securityHelper.requireClinician();
         IngestionFile updated = storageService.pseudonymize(id);
         return ResponseEntity.ok(updated);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','CLINICIAN')")
     @GetMapping("/{id}/anonymization-logs")
     public ResponseEntity<List<AnonymizationLog>> listAnonymizationLogs(@PathVariable UUID id) {
+        securityHelper.requireClinician();
         return ResponseEntity.ok(anonymizationLogService.listByFile(id));
     }
 
-    // New endpoints
     @GetMapping("/{id}")
-    public ResponseEntity<IngestionFile> get(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt, Authentication auth) {
+    public ResponseEntity<IngestionFile> get(@PathVariable UUID id) {
         IngestionFile f = storageService.get(id);
-        if (!canAccess(jwt, auth, f.getUserId())) {
-            return ResponseEntity.status(403).build();
-        }
+        securityHelper.validateResourceAccess(f.getUserId());
         return ResponseEntity.ok(f);
     }
 
     @GetMapping
     public ResponseEntity<List<IngestionFile>> list(@RequestParam(required = false) UUID userId,
-                                                    @RequestParam(required = false) FileStatus status,
-                                                    @AuthenticationPrincipal Jwt jwt,
-                                                    Authentication auth) {
-        UUID requester = resolveUserId(jwt);
-        boolean isStaff = hasRole(auth, "ROLE_ADMIN") || hasRole(auth, "ROLE_CLINICIAN");
+                                                    @RequestParam(required = false) FileStatus status) {
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        boolean isStaff = securityHelper.hasAnyRole("ADMIN", "CLINICIAN");
+
         if (!isStaff) {
-            if (userId != null && !userId.equals(requester)) {
-                return ResponseEntity.status(403).build();
+            if (userId != null && !userId.equals(authenticatedUserId)) {
+                throw new IllegalArgumentException("Access denied: You can only list your own files");
             }
-            userId = requester;
+            userId = authenticatedUserId;
         } else {
+            // CLINICIAN/ADMIN must specify userId
             if (userId == null) {
                 return ResponseEntity.badRequest().build();
             }
@@ -87,13 +80,10 @@ public class FileController {
     }
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<byte[]> download(@PathVariable UUID id,
-                                           @AuthenticationPrincipal Jwt jwt,
-                                           Authentication auth) throws IOException {
+    public ResponseEntity<byte[]> download(@PathVariable UUID id) throws IOException {
         IngestionFile f = storageService.get(id);
-        if (!canAccess(jwt, auth, f.getUserId())) {
-            return ResponseEntity.status(403).build();
-        }
+        securityHelper.validateResourceAccess(f.getUserId());
+
         byte[] data = storageService.download(id);
         String filename = f.getOriginalName() != null ? f.getOriginalName() : "file";
         return ResponseEntity.ok()
@@ -103,36 +93,10 @@ public class FileController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id,
-                                       @AuthenticationPrincipal Jwt jwt,
-                                       Authentication auth) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
         IngestionFile f = storageService.get(id);
-        if (!canAccess(jwt, auth, f.getUserId())) {
-            return ResponseEntity.status(403).build();
-        }
+        securityHelper.validateResourceAccess(f.getUserId());
         storageService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    private boolean canAccess(Jwt jwt, Authentication auth, UUID ownerId) {
-        if (hasRole(auth, "ROLE_ADMIN") || hasRole(auth, "ROLE_CLINICIAN")) return true;
-        UUID requester = resolveUserId(jwt);
-        return requester != null && requester.equals(ownerId);
-    }
-
-    private boolean hasRole(Authentication auth, String role) {
-        if (auth == null) return false;
-        Collection<? extends GrantedAuthority> auths = auth.getAuthorities();
-        if (auths == null) return false;
-        return auths.stream().anyMatch(a -> role.equals(a.getAuthority()));
-    }
-
-    private UUID resolveUserId(Jwt jwt) {
-        if (jwt == null) return null;
-        Object uid = jwt.getClaim("user_id");
-        if (uid instanceof String s) {
-            try { return UUID.fromString(s); } catch (IllegalArgumentException ignored) {}
-        }
-        return null;
     }
 }

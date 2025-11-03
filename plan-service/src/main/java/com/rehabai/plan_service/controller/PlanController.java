@@ -1,5 +1,6 @@
 package com.rehabai.plan_service.controller;
 
+import com.rehabai.plan_service.security.SecurityHelper;
 import com.rehabai.plan_service.dto.CreatePlanRequest;
 import com.rehabai.plan_service.dto.PlanResponse;
 import com.rehabai.plan_service.dto.UpdatePlanRequest;
@@ -21,9 +22,11 @@ import java.util.UUID;
 public class PlanController {
 
     private final PlanService planService;
+    private final SecurityHelper securityHelper;
 
     @PostMapping
     public ResponseEntity<PlanResponse> createPlan(@Valid @RequestBody CreatePlanRequest request) {
+        securityHelper.requireClinician();
         PlanResponse response = planService.createPlan(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -31,6 +34,7 @@ public class PlanController {
     @GetMapping("/{id}")
     public ResponseEntity<PlanResponse> getPlan(@PathVariable UUID id) {
         PlanResponse response = planService.getPlan(id);
+        securityHelper.validateResourceAccess(response.userId());
         return ResponseEntity.ok(response);
     }
 
@@ -39,12 +43,15 @@ public class PlanController {
             @PathVariable UUID id,
             @RequestParam(required = false) UUID changedBy,
             @Valid @RequestBody UpdatePlanRequest request) {
-        PlanResponse response = planService.updatePlan(id, changedBy, request);
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.updatePlan(id, authenticatedUserId, request);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<PlanResponse>> getPlansByUser(@PathVariable UUID userId) {
+        securityHelper.validateResourceAccess(userId);
         List<PlanResponse> plans = planService.getPlansByUser(userId);
         return ResponseEntity.ok(plans);
     }
@@ -53,6 +60,7 @@ public class PlanController {
     public ResponseEntity<List<PlanResponse>> getPlansByUserAndStatus(
             @PathVariable UUID userId,
             @PathVariable PlanStatus status) {
+        securityHelper.validateResourceAccess(userId);
         List<PlanResponse> plans = planService.getPlansByUserAndStatus(userId, status);
         return ResponseEntity.ok(plans);
     }
@@ -60,17 +68,24 @@ public class PlanController {
     @GetMapping("/prescription/{prescriptionId}/versions")
     public ResponseEntity<List<PlanResponse>> getPlanVersions(@PathVariable UUID prescriptionId) {
         List<PlanResponse> versions = planService.getPlanVersions(prescriptionId);
+        if (!versions.isEmpty()) {
+            securityHelper.validateResourceAccess(versions.get(0).userId());
+        }
         return ResponseEntity.ok(versions);
     }
 
     @GetMapping("/prescription/{prescriptionId}/latest")
     public ResponseEntity<PlanResponse> getLatestPlanVersion(@PathVariable UUID prescriptionId) {
         PlanResponse response = planService.getLatestPlanVersion(prescriptionId);
+        securityHelper.validateResourceAccess(response.userId());
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/audit")
     public ResponseEntity<List<PlanAuditLog>> getAuditHistory(@PathVariable UUID id) {
+        PlanResponse plan = planService.getPlan(id);
+        securityHelper.validateResourceAccess(plan.userId());
+
         List<PlanAuditLog> history = planService.getAuditHistory(id);
         return ResponseEntity.ok(history);
     }
@@ -78,26 +93,31 @@ public class PlanController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<PlanResponse> approvePlan(
             @PathVariable UUID id,
-            @RequestParam UUID approvedBy) {
-        PlanResponse response = planService.approvePlan(id, approvedBy);
+            @RequestParam(required = false) UUID approvedBy) {
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.approvePlan(id, authenticatedUserId);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/archive")
     public ResponseEntity<PlanResponse> archivePlan(
             @PathVariable UUID id,
-            @RequestParam UUID archivedBy,
+            @RequestParam(required = false) UUID archivedBy,
             @RequestParam(required = false) String reason) {
-        PlanResponse response = planService.archivePlan(id, archivedBy, reason);
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.archivePlan(id, authenticatedUserId, reason);
         return ResponseEntity.ok(response);
     }
 
-    // New versioning endpoints
     @PostMapping("/{id}/new-version")
     public ResponseEntity<PlanResponse> createNewVersion(@PathVariable UUID id,
                                                          @RequestParam(required = false) UUID changedBy,
                                                          @RequestParam(required = false) String reason) {
-        PlanResponse response = planService.createNewVersion(id, changedBy, reason);
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.createNewVersion(id, authenticatedUserId, reason);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -106,7 +126,9 @@ public class PlanController {
                                                  @RequestParam Integer toVersion,
                                                  @RequestParam(required = false) UUID changedBy,
                                                  @RequestParam(required = false) String reason) {
-        PlanResponse response = planService.rollbackToVersion(id, toVersion, changedBy, reason);
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.rollbackToVersion(id, toVersion, authenticatedUserId, reason);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
