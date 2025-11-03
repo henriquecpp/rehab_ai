@@ -49,17 +49,26 @@ public class AuthController {
 
             userService.registerNewUser(req);
             UserDetails ud = userService.loadUserByUsername(req.email());
-            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
-            String token = jwtUtil.generateToken(ud, Map.of("user_id", u.id().toString()));
+
+            UserServiceClient.CredentialsResponse creds = userService.getCredentialsByEmail(req.email());
+            String token = jwtUtil.generateToken(ud, Map.of("user_id", creds.id().toString()));
             long expiresIn = jwtUtil.getExpirationMs();
 
-            var rt = refreshTokenService.issueForUser(u.id());
+            var rt = refreshTokenService.issueForUser(creds.id());
             long refreshExpiresIn = refreshTokenService.getRefreshExpirationMs();
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new AuthResponse(token, "Bearer", expiresIn, rt.getTokenId().toString(), refreshExpiresIn));
+        } catch (org.springframework.web.client.HttpClientErrorException.BadRequest ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "email_already_exists", "message", "Email já cadastrado"));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+        } catch (Exception ex) {
+            org.slf4j.LoggerFactory.getLogger(AuthController.class)
+                .error("Unexpected error during registration for {}", req.email(), ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "internal_error", "message", "An unexpected error occurred"));
         }
     }
 
@@ -74,11 +83,12 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("invalid_credentials");
             }
 
-            UserServiceClient.UserResponse u = userService.getUserByEmail(req.email());
-            String token = jwtUtil.generateToken(ud, Map.of("user_id", u.id().toString()));
+
+            UserServiceClient.CredentialsResponse creds = userService.getCredentialsByEmail(req.email());
+            String token = jwtUtil.generateToken(ud, Map.of("user_id", creds.id().toString()));
             long expiresIn = jwtUtil.getExpirationMs();
 
-            var rt = refreshTokenService.issueForUser(u.id());
+            var rt = refreshTokenService.issueForUser(creds.id());
             long refreshExpiresIn = refreshTokenService.getRefreshExpirationMs();
 
             return ResponseEntity.ok(new AuthResponse(token, "Bearer", expiresIn, rt.getTokenId().toString(), refreshExpiresIn));
