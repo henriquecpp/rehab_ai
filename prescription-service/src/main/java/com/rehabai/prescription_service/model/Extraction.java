@@ -11,7 +11,9 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "extractions")
+@Table(name = "extractions", indexes = {
+        @Index(name = "idx_extractions_file", columnList = "file_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
