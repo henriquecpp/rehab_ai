@@ -3,6 +3,9 @@ package com.rehabai.prescription_service.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.textract.TextractClient;
@@ -11,13 +14,28 @@ import software.amazon.awssdk.services.textract.TextractClient;
 public class AwsClientsConfig {
 
     @Bean
-    public TextractClient textractClient(@Value("${AWS_REGION:us-east-1}") String region) {
-        return TextractClient.builder().region(Region.of(region)).build();
+    public TextractClient textractClient(@Value("${AWS_REGION:us-east-1}") String region,
+                                         @Value("${BEDROCK_AWS_ACCESS_KEY_ID:}") String bedrockAccessKey,
+                                         @Value("${BEDROCK_AWS_SECRET_ACCESS_KEY:}") String bedrockSecretKey) {
+        var builder = TextractClient.builder().region(Region.of(region));
+        if (bedrockAccessKey != null && !bedrockAccessKey.isBlank() && bedrockSecretKey != null && !bedrockSecretKey.isBlank()) {
+            builder = builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(bedrockAccessKey, bedrockSecretKey)));
+        } else {
+            builder = builder.credentialsProvider(DefaultCredentialsProvider.builder().build());
+        }
+        return builder.build();
     }
 
     @Bean
-    public BedrockRuntimeClient bedrockRuntimeClient(@Value("${AWS_REGION:us-east-1}") String region) {
-        return BedrockRuntimeClient.builder().region(Region.of(region)).build();
+    public BedrockRuntimeClient bedrockRuntimeClient(@Value("${AWS_REGION:us-east-1}") String region,
+                                                     @Value("${BEDROCK_AWS_ACCESS_KEY_ID:}") String bedrockAccessKey,
+                                                     @Value("${BEDROCK_AWS_SECRET_ACCESS_KEY:}") String bedrockSecretKey) {
+        var builder = BedrockRuntimeClient.builder().region(Region.of(region));
+        if (bedrockAccessKey != null && !bedrockAccessKey.isBlank() && bedrockSecretKey != null && !bedrockSecretKey.isBlank()) {
+            builder = builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(bedrockAccessKey, bedrockSecretKey)));
+        } else {
+            builder = builder.credentialsProvider(DefaultCredentialsProvider.builder().build());
+        }
+        return builder.build();
     }
 }
-
