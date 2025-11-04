@@ -116,9 +116,7 @@ services:
   # User Service
   # ===============================
   user-service:
-    build:
-      context: .
-      dockerfile: user-service/Dockerfile
+    build: ./user-service
     container_name: user-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
@@ -146,9 +144,7 @@ services:
   # File Service
   # ===============================
   file-service:
-    build:
-      context: .
-      dockerfile: file-service/Dockerfile
+    build: ./file-service
     container_name: file-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
@@ -183,9 +179,7 @@ services:
   # Prescription Service
   # ===============================
   prescription-service:
-    build:
-      context: .
-      dockerfile: prescription-service/Dockerfile
+    build: ./prescription-service
     container_name: prescription-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
@@ -238,9 +232,7 @@ services:
   # Plan Service
   # ===============================
   plan-service:
-    build:
-      context: .
-      dockerfile: plan-service/Dockerfile
+    build: ./plan-service
     container_name: plan-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
@@ -293,9 +285,7 @@ services:
   # Patient Service
   # ===============================
   patient-service:
-    build:
-      context: .
-      dockerfile: patient-service/Dockerfile
+    build: ./patient-service
     container_name: patient-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-rehabdb}
