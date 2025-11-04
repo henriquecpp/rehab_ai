@@ -89,7 +89,7 @@ public class LlmService {
     }
 
     private boolean violatesGuardrails(String output) {
-        Pattern p = Pattern.compile("(?i)(cpf|rg|senha|password|fuck|shit)");
+        Pattern p = Pattern.compile("(?i)(cpf|rg|senha|password)");
         return p.matcher(output).find();
     }
 
