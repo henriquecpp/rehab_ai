@@ -18,8 +18,8 @@ import java.net.URI;
 public class S3Config {
     @Bean
     public S3Client s3Client(
-            @Value("${AWS_ACCESS_KEY_ID:dummy}") String accessKey,
-            @Value("${AWS_SECRET_ACCESS_KEY:dummy}") String secretKey,
+            @Value("${S3_ACCESS_KEY_ID:dummy}") String accessKey,
+            @Value("${S3_SECRET_ACCESS_KEY:dummy}") String secretKey,
             @Value("${AWS_REGION:us-east-1}") String region,
             @Value("${S3_ENDPOINT:}") String endpoint
     ) {
