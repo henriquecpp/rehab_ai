@@ -34,12 +34,14 @@ public class PlanService {
     private final Counter planUpdated;
     private final Counter planApproved;
     private final UserClient userClient;
+    private final com.rehabai.plan_service.integration.PatientClient patientClient;
 
     public PlanService(PlanRepository planRepo,
                       PlanAuditLogRepository auditRepo,
                       MeterRegistry meterRegistry,
                       ObjectMapper objectMapper,
-                      UserClient userClient) {
+                      UserClient userClient,
+                      com.rehabai.plan_service.integration.PatientClient patientClient) {
         this.planRepo = planRepo;
         this.auditRepo = auditRepo;
         this.objectMapper = objectMapper;
@@ -47,14 +49,15 @@ public class PlanService {
         this.planUpdated = meterRegistry.counter("plan.updated");
         this.planApproved = meterRegistry.counter("plan.approved");
         this.userClient = userClient;
+        this.patientClient = patientClient;
     }
 
     @Transactional
     public PlanResponse createPlan(CreatePlanRequest request) {
-        // Validar usuário no user-service: precisa ser PATIENT e ativo
         userClient.requireActivePatient(request.userId());
 
-        // Determinar próxima versão
+        patientClient.requirePatientProfile(request.userId());
+
         Integer maxVersion = planRepo.findMaxVersionByUserAndPrescription(
             request.userId(),
             request.prescriptionId()
@@ -71,7 +74,6 @@ public class PlanService {
         plan = planRepo.save(plan);
         planCreated.increment();
 
-        // Audit log
         logAudit(plan.getId(), null, "Plan created", "{}");
 
         log.info("Plan created: id={}, userId={}, version={}",
@@ -105,7 +107,6 @@ public class PlanService {
         plan = planRepo.save(plan);
         planUpdated.increment();
 
-        // Calcular diff e registrar auditoria
         String diff = calculateDiff(oldData, plan.getPlanData());
         logAudit(plan.getId(), changedBy, request.reason(), diff);
 
@@ -225,7 +226,6 @@ public class PlanService {
         try {
             JsonNode oldJson = objectMapper.readTree(oldData);
             JsonNode newJson = objectMapper.readTree(newData);
-            // Simplificado: retorna indicação de mudança
             return "{\"changed\": " + !oldJson.equals(newJson) + "}";
         } catch (Exception e) {
             log.warn("Failed to calculate diff: {}", e.getMessage());
