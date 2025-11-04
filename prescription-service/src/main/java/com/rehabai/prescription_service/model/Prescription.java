@@ -1,11 +1,21 @@
 package com.rehabai.prescription_service.model;
 
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "prescriptions")
+@Table(name = "prescriptions", indexes = {
+        @Index(name = "idx_prescriptions_normalization", columnList = "normalization_id")
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@EqualsAndHashCode(of = "id")
 public class Prescription {
     @Id
     @GeneratedValue
@@ -34,22 +44,4 @@ public class Prescription {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
-
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public UUID getNormalizationId() { return normalizationId; }
-    public void setNormalizationId(UUID normalizationId) { this.normalizationId = normalizationId; }
-    public String getPrescriptionText() { return prescriptionText; }
-    public void setPrescriptionText(String prescriptionText) { this.prescriptionText = prescriptionText; }
-    public String getParametersJson() { return parametersJson; }
-    public void setParametersJson(String parametersJson) { this.parametersJson = parametersJson; }
-    public String getPromptVersion() { return promptVersion; }
-    public void setPromptVersion(String promptVersion) { this.promptVersion = promptVersion; }
-    public String getModelUsed() { return modelUsed; }
-    public void setModelUsed(String modelUsed) { this.modelUsed = modelUsed; }
-    public GuardrailStatus getGuardrailStatus() { return guardrailStatus; }
-    public void setGuardrailStatus(GuardrailStatus guardrailStatus) { this.guardrailStatus = guardrailStatus; }
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }
-
