@@ -1,5 +1,6 @@
 package com.rehabai.prescription_service.controller;
 
+import com.rehabai.prescription_service.security.SecurityHelper;
 import com.rehabai.prescription_service.model.WorkflowRun;
 import com.rehabai.prescription_service.model.WorkflowStage;
 import com.rehabai.prescription_service.model.WorkflowStatus;
@@ -20,9 +21,12 @@ import java.util.UUID;
 public class WorkflowLifecycleController {
 
     private final WorkflowRunRepository runRepo;
+    private final SecurityHelper securityHelper;
 
     @PostMapping
     public ResponseEntity<WorkflowRun> start(@RequestBody StartRequest req) {
+        securityHelper.requireClinician();
+
         WorkflowRun run = new WorkflowRun();
         run.setUserId(req.userId());
         run.setFileId(req.fileId());
@@ -35,6 +39,8 @@ public class WorkflowLifecycleController {
 
     @PostMapping("/{id}/advance")
     public ResponseEntity<?> advance(@PathVariable UUID id, @RequestBody AdvanceRequest req) {
+        securityHelper.requireClinician();
+
         WorkflowRun run = runRepo.findById(id).orElse(null);
         if (run == null) return ResponseEntity.notFound().build();
         if (run.getStatus() != WorkflowStatus.RUNNING) {
@@ -50,6 +56,8 @@ public class WorkflowLifecycleController {
 
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> complete(@PathVariable UUID id) {
+        securityHelper.requireClinician();
+
         WorkflowRun run = runRepo.findById(id).orElse(null);
         if (run == null) return ResponseEntity.notFound().build();
         run.setCurrentStage(WorkflowStage.DONE);
@@ -60,6 +68,8 @@ public class WorkflowLifecycleController {
 
     @PostMapping("/{id}/fail")
     public ResponseEntity<?> fail(@PathVariable UUID id) {
+        securityHelper.requireClinician();
+
         WorkflowRun run = runRepo.findById(id).orElse(null);
         if (run == null) return ResponseEntity.notFound().build();
         run.setCurrentStage(WorkflowStage.ERROR);
@@ -70,6 +80,8 @@ public class WorkflowLifecycleController {
 
     @PostMapping("/{id}/retry")
     public ResponseEntity<?> retry(@PathVariable UUID id) {
+        securityHelper.requireClinician();
+
         WorkflowRun run = runRepo.findById(id).orElse(null);
         if (run == null) return ResponseEntity.notFound().build();
         run.setCurrentStage(WorkflowStage.EXTRACTION);
