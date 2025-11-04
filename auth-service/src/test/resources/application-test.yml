@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: auth-service-test
+  datasource:
+    url: jdbc:h2:mem:authtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  main:
+    allow-bean-definition-overriding: true
+
+# JWT para testes (>= 256 bits)
+auth:
+  jwt:
+    secret: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# URL base do user-service (mockada via MockRestServiceServer)
+user:
+  service:
+    url: http://user-service:8082
+
+# Desabilitar tracing no teste para logs mais limpos
+management:
+  tracing:
+    enabled: false
