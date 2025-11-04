@@ -11,7 +11,9 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "workflow_runs")
+@Table(name = "workflow_runs", indexes = {
+        @Index(name = "idx_workflow_trace", columnList = "trace_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,6 +24,9 @@ public class WorkflowRun {
     @Id
     @GeneratedValue
     private UUID id;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     @Column(name = "file_id", nullable = false)
     private UUID fileId;
