@@ -11,7 +11,9 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "normalizations")
+@Table(name = "normalizations", indexes = {
+        @Index(name = "idx_normalizations_extraction", columnList = "extraction_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
