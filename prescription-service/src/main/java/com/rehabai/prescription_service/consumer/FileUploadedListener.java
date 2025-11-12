@@ -26,7 +26,16 @@ public class FileUploadedListener {
 
     @RabbitListener(queues = "${amqp.prescriptionQueue:prescription.file.uploaded}")
     public void handle(FileUploadedEvent event) {
-        log.info("[Prescription] Received file.uploaded: id={}, bucket={}, key={}", event.id(), event.bucket(), event.s3Path());
+        log.info("[Prescription] Received file.uploaded: id={}, userId={}, bucket={}, key={}, type={}",
+                 event.id(), event.userId(), event.bucket(), event.s3Path(), event.fileType());
+
+        // Processar apenas arquivos do tipo PRESCRIPTION
+        if (event.fileType() == null || !event.fileType().name().equals("PRESCRIPTION")) {
+            log.info("[Prescription] Skipping file {} - type is {} (not PRESCRIPTION)",
+                     event.id(), event.fileType());
+            return;
+        }
+
         try {
             ResponseBytes<GetObjectResponse> bytes = s3Client.getObjectAsBytes(GetObjectRequest.builder()
                     .bucket(event.bucket())
@@ -35,7 +44,7 @@ public class FileUploadedListener {
             byte[] content = bytes.asByteArray();
             String contentType = bytes.response() != null ? bytes.response().contentType() : null;
             log.info("Downloaded file bytes: {} bytes (contentType={}). Starting pipeline...", content.length, contentType);
-            pipelineService.processFile(event.id(), content, event.originalName(), contentType);
+            pipelineService.processFile(event.id(), event.userId(), content, event.originalName(), contentType);
             log.info("[Prescription] Pipeline completed for file {}", event.id());
         } catch (Exception e) {
             log.error("[Prescription] Error processing file {}: {}", event.id(), e.getMessage(), e);
