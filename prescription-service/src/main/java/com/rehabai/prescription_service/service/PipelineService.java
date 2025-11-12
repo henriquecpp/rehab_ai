@@ -58,14 +58,24 @@ public class PipelineService {
     }
 
     @Transactional
-    public void processFile(UUID fileId, byte[] content, String filename, String contentType) {
+    public void processFile(UUID fileId, UUID userId, byte[] content, String filename, String contentType) {
         WorkflowRun run = new WorkflowRun();
         run.setFileId(fileId);
+        run.setUserId(userId);
         run.setCurrentStage(WorkflowStage.EXTRACTION);
+
+        String traceId;
         try {
-            String traceId = tracer != null && tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : null;
-            run.setTraceId(traceId);
-        } catch (Exception ignore) {}
+            traceId = tracer != null && tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : null;
+        } catch (Exception ignore) {
+            traceId = null;
+        }
+
+        if (traceId == null || traceId.isEmpty()) {
+            traceId = UUID.randomUUID().toString().replace("-", "");
+        }
+
+        run.setTraceId(traceId);
         run = runRepo.save(run);
 
         Timer.Sample total = Timer.start(meterRegistry);
@@ -83,6 +93,7 @@ public class PipelineService {
             String extractedText;
             try (Observation.Scope s = extractObs.start().openScope()) {
                 var ocr = ocrService.extract(content, filename, contentType);
+                log.debug("OCR extracted text: {}", ocr.text());
                 extractedText = ocr.text();
                 ext = new Extraction();
                 ext.setFileId(fileId);
@@ -125,7 +136,6 @@ public class PipelineService {
                 throw ex;
             } finally {
                 int latencyNorm = (int) (System.currentTimeMillis() - startNorm);
-                // Trace for normalization (input: extractedText, output: normalized terms)
                 saveAiTrace(run.getTraceId(), "normalizer",
                         truncate(extractedText, 500),
                         truncate(norm != null ? norm.getNormalizedTerms() : null, 500),
@@ -135,7 +145,6 @@ public class PipelineService {
                 normTimer.stop(Timer.builder("pipeline.stage.latency").tag("stage", "normalization").register(meterRegistry));
             }
 
-            // Prescription Stage (LLM)
             run.setCurrentStage(WorkflowStage.PRESCRIPTION);
             runRepo.save(run);
             Observation prescObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
@@ -145,6 +154,16 @@ public class PipelineService {
             long startLlm = System.currentTimeMillis();
             try (Observation.Scope s = prescObs.start().openScope()) {
                 var llm = llmService.generate(norm.getNormalizedTerms());
+
+                log.info("LLM Response - Prescription Text Length: {}",
+                         llm.prescriptionText() != null ? llm.prescriptionText().length() : 0);
+                log.info("LLM Response - Prescription Text Preview: {}",
+                         truncate(llm.prescriptionText(), 200));
+                log.info("LLM Response - Parameters JSON Length: {}",
+                         llm.parametersJson() != null ? llm.parametersJson().length() : 0);
+                log.info("LLM Response - Model Used: {}", llm.modelUsed());
+                log.info("LLM Response - Guardrail Status: {}", llm.guardrailStatus());
+
                 Prescription pr = new Prescription();
                 pr.setNormalizationId(norm.getId());
                 pr.setPrescriptionText(llm.prescriptionText());
@@ -153,6 +172,8 @@ public class PipelineService {
                 pr.setModelUsed(llm.modelUsed());
                 pr.setGuardrailStatus(llm.guardrailStatus());
                 prescriptionRepo.save(pr);
+
+                log.info("Prescription saved with ID: {}", pr.getId());
 
                 boolean blocked = llm.guardrailStatus() == GuardrailStatus.BLOCKED;
                 int latencyLlm = (int) (System.currentTimeMillis() - startLlm);
