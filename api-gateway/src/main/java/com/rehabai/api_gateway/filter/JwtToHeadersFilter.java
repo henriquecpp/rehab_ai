@@ -23,14 +23,24 @@ public class JwtToHeadersFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        log.debug("JwtToHeadersFilter: Processing request to {}", exchange.getRequest().getURI());
+
         return ReactiveSecurityContextHolder.getContext()
             .map(SecurityContext::getAuthentication)
             .filter(Authentication::isAuthenticated)
             .flatMap(authentication -> {
+                /* log.debug("Authentication found: {}, Principal type: {}",
+                    authentication.getName(),
+                    authentication.getPrincipal().getClass().getSimpleName()); */
+
                 if (authentication.getPrincipal() instanceof Jwt jwt) {
                     String userId = extractUserId(jwt);
                     String roles = extractRoles(authentication);
                     String email = jwt.getClaimAsString("email");
+
+                    /* log.info("JWT → Headers: userId={}, roles={}, email={}", userId, roles, email);
+                    log.debug("JWT claims: {}", jwt.getClaims());
+                    log.debug("Authorities: {}", authentication.getAuthorities()); */
 
                     ServerWebExchange mutatedExchange = exchange.mutate()
                         .request(builder -> {
@@ -38,24 +48,31 @@ public class JwtToHeadersFilter implements WebFilter {
 
                             if (userId != null) {
                                 builder.header("X-User-Id", userId);
+                                //log.debug("Added header: X-User-Id={}", userId);
                             }
-                            if (roles != null) {
+                            if (roles != null && !roles.isEmpty()) {
                                 builder.header("X-User-Roles", roles);
+                                //log.debug("Added header: X-User-Roles={}", roles);
+                            } else {
+                                //log.warn("No roles found to add to X-User-Roles header!");
                             }
                             if (email != null) {
                                 builder.header("X-User-Email", email);
+                                //log.debug("Added header: X-User-Email={}", email);
                             }
                         })
                         .build();
 
-                    log.debug("JWT → Headers: userId={}, roles={}, email={}", userId, roles, email);
-
                     return chain.filter(mutatedExchange);
                 }
 
+                //log.warn("Principal is not a JWT! Type: {}", authentication.getPrincipal().getClass());
                 return chain.filter(exchange);
             })
-            .switchIfEmpty(chain.filter(exchange));
+            .switchIfEmpty(Mono.defer(() -> {
+                //log.warn("No authentication found in SecurityContext for request to {}", exchange.getRequest().getURI());
+                return chain.filter(exchange);
+            }));
     }
 
     private String extractUserId(Jwt jwt) {
