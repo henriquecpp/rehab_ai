@@ -8,7 +8,9 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "ingestion_files", indexes = {
-        @Index(name = "idx_ingestion_user", columnList = "user_id")
+        @Index(name = "idx_ingestion_user", columnList = "user_id"),
+        @Index(name = "idx_ingestion_files_type", columnList = "file_type"),
+        @Index(name = "idx_ingestion_files_user_type", columnList = "user_id, file_type")
 })
 @Getter
 @Setter
@@ -33,6 +35,10 @@ public class IngestionFile {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     private FileStatus status = FileStatus.UPLOADED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "file_type", length = 20)
+    private FileType fileType = FileType.OTHER;
 
     @Column(name = "size_bytes")
     private Long sizeBytes;
