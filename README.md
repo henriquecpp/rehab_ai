@@ -1,39 +1,145 @@
 # Rehab AI Platform (Monorepo)
 
-Plataforma de prescrição personalizada de exercícios de reabilitação. Arquitetura de microsserviços com Spring Boot 3.5.x, Spring Cloud Gateway, PostgreSQL, RabbitMQ e observabilidade (Prometheus/Grafana + OpenTelemetry/Jaeger).
+Plataforma de prescrição personalizada de exercícios de reabilitação com **IA generativa**. Arquitetura de microsserviços com Spring Boot 3.5.x, Spring Cloud Gateway, PostgreSQL, RabbitMQ, AWS (Textract, Bedrock) e observabilidade (Prometheus/Grafana + OpenTelemetry/Jaeger).
 
-## Componentes
-- API Gateway (porta 8080): roteamento, CORS, validação de JWT HS256, ponto de entrada único.
-- Auth Service (porta 8081): registro/login de usuários e emissão de JWT HS256.
-- User Service (porta 8082): CRUD de usuários (PATIENT, CLINICIAN, ADMIN) — substitui o antigo patient-service.
-- File Service (porta 8083): upload/armazenamento S3, publica eventos RabbitMQ.
-- Prescription Service (porta 8084): pipeline OCR/LLM, normalização, guarda estágios.
-- Notification Service (porta 8085): e-mail/push e consumo de eventos.
-- Plan Service (porta 8086): versionamento/auditoria de planos e integração com User Service.
+## ✨ Funcionalidades Principais
 
-## Execução (Docker Compose)
-Pré-requisitos: Docker e Docker Compose instalados. Copie `.env.example` para `.env` e ajuste segredos/credenciais.
+### 🤖 **Geração de Planos com IA** (NOVO!)
+- Upload de laudos médicos (PDF/imagem)
+- OCR automático com AWS Textract
+- Processamento assíncrono via RabbitMQ
+- Geração de planos estruturados com AWS Bedrock (Claude 3)
+- **Drafts prontos para revisão** em ~40 segundos
+- [📖 Documentação Completa](INDICE-MASTER.md)
 
-```zsh
-# Na raiz do repositório
-cp -n .env.example .env
-# Suba toda a stack usando as variáveis do .env
-docker compose --env-file .env up -d --build
+### 🔐 Autenticação & Autorização
+- JWT HS256 com refresh tokens
+- Roles: PATIENT, CLINICIAN, ADMIN
+- API Gateway valida e injeta headers
+
+### 📁 Gerenciamento de Arquivos
+- Upload para S3
+- Anonimização LGPD-compliant
+- Versionamento e auditoria
+
+### 📋 Planos de Reabilitação
+- Criação, edição e versionamento
+- Status: DRAFT, APPROVED, ARCHIVED
+- Histórico completo de mudanças
+
+### 📊 Observabilidade
+- Métricas com Prometheus
+- Dashboards com Grafana
+- Tracing distribuído com Jaeger
+- Logs estruturados
+
+---
+
+## 🏗️ Componentes
+
+| Serviço | Porta | Descrição |
+|---------|-------|-----------|
+| **API Gateway** | 8080 | Roteamento, CORS, validação JWT |
+| **Auth Service** | 8081 | Registro/login, emissão de JWT |
+| **User Service** | 8082 | CRUD de usuários, consentimentos LGPD |
+| **Patient Service** | 8083 | Perfil e histórico médico |
+| **Plan Service** | 8084 | Planos de reabilitação versionados |
+| **File Service** | 8085 | Upload S3, anonimização |
+| **Prescription Service** | 8086 | **OCR, IA, geração de drafts** ⭐ |
+| **Notification Service** | 8087 | Email/push, eventos |
+
+---
+
+## 🚀 Quick Start
+
+### Pré-requisitos
+- Docker e Docker Compose
+- Conta AWS (para Textract e Bedrock) ou usar stubs para testes
+
+### 1. Configuração
+
+```bash
+# Clone o repositório
+git clone <repo-url>
+cd rehab_ai
+
+# Configure variáveis de ambiente
+cp .env.example .env
+# Edite .env com suas credenciais AWS e secrets
 ```
 
-- Postgres em 5432
-- RabbitMQ em 5672 (UI: 15672)
-- Gateway em http://localhost:8080
-- Prometheus em http://localhost:9090
-- Grafana em http://localhost:3000 (admin/admin)
-- Jaeger UI em http://localhost:16686
+### 2. Executar com Docker Compose
 
-Observações:
-- O Gateway é protegido: exige JWT para qualquer rota que não seja `/auth/**` nem `/actuator/**`.
-- O roteamento usa variáveis de ambiente (padrões definidos em `docker-compose.yml`).
-- Prometheus coleta métricas em `/actuator/prometheus` para todos os serviços.
+```bash
+# Subir toda a stack
+docker-compose up -d --build
 
-## Execução local (sem Docker)
+# Verificar logs
+docker-compose logs -f
+
+# Parar serviços
+docker-compose down
+```
+
+---
+
+## 📖 Documentação
+
+### 🎯 **Início Rápido**
+- **[INDICE-MASTER.md](INDICE-MASTER.md)** - Índice completo de toda documentação
+- **[QUICK-START-PLAN-DRAFT.md](QUICK-START-PLAN-DRAFT.md)** - Comandos essenciais
+
+### 📊 **Entendimento do Fluxo**
+- **[FLUXO-VISUAL-RESUMIDO.md](FLUXO-VISUAL-RESUMIDO.md)** - Visão geral em 4 etapas
+- **[FLUXO-COMPLETO-UPLOAD-TO-DRAFT.md](FLUXO-COMPLETO-UPLOAD-TO-DRAFT.md)** - Detalhamento completo
+- **[SEQUENCE-DIAGRAM-UPLOAD-TO-DRAFT.md](SEQUENCE-DIAGRAM-UPLOAD-TO-DRAFT.md)** - Diagrama técnico
+
+### 🔧 **Implementação**
+- **[PRESCRIPTION-SERVICE-IMPROVEMENTS.md](PRESCRIPTION-SERVICE-IMPROVEMENTS.md)** - Guia técnico
+- **[PRESCRIPTION-SERVICE-COMPLETE.md](PRESCRIPTION-SERVICE-COMPLETE.md)** - Resumo executivo
+- **[API-ENDPOINTS-COMPLETE.md](API-ENDPOINTS-COMPLETE.md)** - 70+ endpoints documentados
+
+---
+
+## 🌐 Endpoints Principais
+
+### Autenticação
+```bash
+POST /auth/register  # Criar usuário
+POST /auth/login     # Fazer login
+POST /auth/refresh   # Renovar token
+```
+
+### Geração de Planos com IA ⭐
+```bash
+# 1. Upload de laudo
+POST /files/upload
+
+# 2. Verificar status (opcional)
+GET /prescriptions/workflows/latest?fileId={id}
+
+# 3. Obter draft gerado pela IA
+GET /prescriptions/files/{fileId}/plan-draft?userId={patientId}
+
+# 4. Criar plano formal
+POST /plans
+
+# 5. Aprovar plano
+POST /plans/{id}/approve
+```
+
+### Gerenciamento
+```bash
+GET  /users           # Listar usuários
+GET  /patients/{id}   # Perfil do paciente
+GET  /plans/user/{id} # Planos do paciente
+```
+
+**📚 Documentação completa:** [API-ENDPOINTS-COMPLETE.md](API-ENDPOINTS-COMPLETE.md)
+
+---
+
+## 🏃 Execução Local (sem Docker)
 Todos os serviços usam Postgres (veja `.env.example`), RabbitMQ e S3 (MinIO para dev). Inicie os serviços de infraestrutura ou use Docker para eles.
 
 ```zsh
