@@ -8,7 +8,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:validate}
+      ddl-auto: ${DDL_AUTO:update}
       naming:
         implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
@@ -36,4 +36,25 @@ management:
 
 auth:
   jwt:
-    secret: ${JWT_SECRET:my-secret-key}
+    secret: ${JWT_SECRET}
+
+logging:
+  level:
+    com.rehabai.user_service: DEBUG
+
+# SpringDoc OpenAPI (Swagger) Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+    syntax-highlight:
+      activated: true
+    display-request-duration: true
+    doc-expansion: none
+  show-actuator: false
+

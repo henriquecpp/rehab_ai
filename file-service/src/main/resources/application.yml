@@ -45,7 +45,7 @@ management:
 
 auth:
   jwt:
-    secret: ${JWT_SECRET:my-secret-key}
+    secret: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
 
 s3:
   bucket: ${S3_BUCKET:rehab-files}
@@ -56,3 +56,20 @@ S3_ENDPOINT: ${S3_ENDPOINT:}
 amqp:
   fileExchange: ${AMQP_FILE_EXCHANGE:file.events}
   routingKeyUploaded: ${AMQP_ROUTING_KEY_UPLOADED:file.uploaded}
+
+# SpringDoc OpenAPI (Swagger) Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+    syntax-highlight:
+      activated: true
+    display-request-duration: true
+    doc-expansion: none
+  show-actuator: false
+

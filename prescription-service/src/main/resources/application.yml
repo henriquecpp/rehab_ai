@@ -76,7 +76,26 @@ normalization:
 
 llm:
   useBedrock: ${USE_BEDROCK:false}
-  modelId: ${BEDROCK_MODEL_ID:anthropic.claude-3-haiku}
+  modelId: ${BEDROCK_MODEL_ID:anthropic.claude-haiku-4-5-20251001-v1:0}
 
 guardrails:
+  model:
+    maxTokensIn: ${GUARDRAILS_MAX_TOKENS_IN:10000}
+    maxTokensOut: ${GUARDRAILS_MAX_TOKENS_OUT:4096}
   enabled: ${GUARDRAILS_ENABLED:true}
+
+# SpringDoc OpenAPI (Swagger) Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+    syntax-highlight:
+      activated: true
+    display-request-duration: true
+    doc-expansion: none
+  show-actuator: false

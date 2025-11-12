@@ -37,3 +37,20 @@ management:
 user:
   service:
     url: ${USER_SERVICE_URL:http://user-service:8082}
+
+# SpringDoc OpenAPI (Swagger) Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+    syntax-highlight:
+      activated: true
+    display-request-duration: true
+    doc-expansion: none
+  show-actuator: false
+
