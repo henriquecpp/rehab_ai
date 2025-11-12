@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "extractions", indexes = {
@@ -28,12 +30,12 @@ public class Extraction {
     @Column(name = "file_id", nullable = false)
     private UUID fileId;
 
-    @Lob
-    @Column(name = "findings_json")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "findings_json", columnDefinition = "JSONB")
     private String findingsJson;
 
-    @Lob
-    @Column(name = "contraindications_json")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "contraindications_json", columnDefinition = "JSONB")
     private String contraindicationsJson;
 
     @Column(name = "model_used", length = 100)
