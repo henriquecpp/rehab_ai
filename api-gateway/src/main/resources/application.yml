@@ -9,34 +9,83 @@ spring:
   cloud:
     gateway:
       routes:
+        # Auth Service
         - id: auth-service
           uri: ${AUTH_SERVICE_URL:http://auth-service:8081}
           predicates:
             - Path=/auth/**
+        - id: auth-service-docs
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8081}
+          predicates:
+            - Path=/auth/v3/api-docs
+          filters:
+            - RewritePath=/auth/v3/api-docs, /v3/api-docs
+
+        # User Service
         - id: user-service
           uri: ${USER_SERVICE_URL:http://user-service:8082}
           predicates:
-            - Path=/users/**
+            - Path=/users,/users/**
+        - id: user-service-docs
+          uri: ${USER_SERVICE_URL:http://user-service:8082}
+          predicates:
+            - Path=/users/v3/api-docs
+          filters:
+            - RewritePath=/users/v3/api-docs, /v3/api-docs
+
+        # Patient Service
         - id: patient-service
           uri: ${PATIENT_SERVICE_URL:http://patient-service:8087}
           predicates:
-            - Path=/patients/**
+            - Path=/patients,/patients/**
+        - id: patient-service-docs
+          uri: ${PATIENT_SERVICE_URL:http://patient-service:8087}
+          predicates:
+            - Path=/patients/v3/api-docs
+          filters:
+            - RewritePath=/patients/v3/api-docs, /v3/api-docs
+
+        # File Service
         - id: file-service
           uri: ${FILE_SERVICE_URL:http://file-service:8083}
           predicates:
-            - Path=/files/**
+            - Path=/files,/files/**
+        - id: file-service-docs
+          uri: ${FILE_SERVICE_URL:http://file-service:8083}
+          predicates:
+            - Path=/files/v3/api-docs
+          filters:
+            - RewritePath=/files/v3/api-docs, /v3/api-docs
+
+        # Prescription Service
         - id: prescription-service
           uri: ${PRESCRIPTION_SERVICE_URL:http://prescription-service:8084}
           predicates:
-            - Path=/prescriptions/**
+            - Path=/prescriptions,/prescriptions/**
+        - id: prescription-service-docs
+          uri: ${PRESCRIPTION_SERVICE_URL:http://prescription-service:8084}
+          predicates:
+            - Path=/prescriptions/v3/api-docs
+          filters:
+            - RewritePath=/prescriptions/v3/api-docs, /v3/api-docs
+
+        # Notification Service
         - id: notification-service
           uri: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
           predicates:
-            - Path=/notifications/**
+            - Path=/notifications,/notifications/**
+
+        # Plan Service
         - id: plan-service
           uri: ${PLAN_SERVICE_URL:http://plan-service:8086}
           predicates:
-            - Path=/plans/**
+            - Path=/plans,/plans/**
+        - id: plan-service-docs
+          uri: ${PLAN_SERVICE_URL:http://plan-service:8086}
+          predicates:
+            - Path=/plans/v3/api-docs
+          filters:
+            - RewritePath=/plans/v3/api-docs, /v3/api-docs
 
 server:
   port: ${SERVER_PORT:8080}
@@ -62,7 +111,7 @@ logging:
 
 auth:
   jwt:
-    secret: ${JWT_SECRET:my-secret-key}
+    secret: ${JWT_SECRET}
 
 services:
   auth-service:
@@ -79,3 +128,32 @@ services:
     port: 8085
   plan-service:
     port: 8086
+
+# SpringDoc OpenAPI Configuration - Aggregated Swagger
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    urls:
+      - name: Auth Service
+        url: /auth/v3/api-docs
+      - name: User Service
+        url: /users/v3/api-docs
+      - name: Patient Service
+        url: /patients/v3/api-docs
+      - name: File Service
+        url: /files/v3/api-docs
+      - name: Prescription Service
+        url: /prescriptions/v3/api-docs
+      - name: Plan Service
+        url: /plans/v3/api-docs
+    urls-primary-name: Auth Service
+    display-request-duration: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+  api-docs:
+    enabled: true
+  show-actuator: false
+
