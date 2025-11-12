@@ -3,6 +3,7 @@ package com.rehabai.file_service.service;
 import com.rehabai.file_service.events.FileUploadedEvent;
 import com.rehabai.file_service.model.IngestionFile;
 import com.rehabai.file_service.model.FileStatus;
+import com.rehabai.file_service.model.FileType;
 import com.rehabai.file_service.repository.IngestionFileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class StorageService {
     @Value("${amqp.routingKeyUploaded:file.uploaded}")
     private String routingKeyUploaded;
 
-    public IngestionFile upload(MultipartFile file, UUID userId) throws IOException {
+    public IngestionFile upload(MultipartFile file, UUID userId, FileType fileType) throws IOException {
         String original = file.getOriginalFilename();
         String key = "uploads/" + UUID.randomUUID() + (original != null ? ("_" + original) : "");
 
@@ -56,13 +57,14 @@ public class StorageService {
         ent.setOriginalName(original);
         ent.setS3Path(key);
         ent.setStatus(FileStatus.UPLOADED);
+        ent.setFileType(fileType);
         ent.setSizeBytes(file.getSize());
         ent.setHashSha256(sha256(file.getBytes()));
         IngestionFile saved = repo.save(ent);
 
-        FileUploadedEvent evt = new FileUploadedEvent(saved.getId(), bucket, key, original, file.getSize(), saved.getHashSha256());
+        FileUploadedEvent evt = new FileUploadedEvent(saved.getId(), userId, bucket, key, original, file.getSize(), saved.getHashSha256(), fileType);
         rabbit.convertAndSend(exchange.getName(), routingKeyUploaded, evt);
-        log.info("Evento FileUploadedEvent publicado para o arquivo ID: {}", saved.getId());
+        log.info("Evento FileUploadedEvent publicado para o arquivo ID: {} (tipo: {}, userId: {})", saved.getId(), fileType, userId);
 
         return saved;
     }
