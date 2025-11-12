@@ -10,6 +10,15 @@ import com.rehabai.auth_service.service.RefreshTokenService;
 import com.rehabai.auth_service.service.UserService;
 import com.rehabai.auth_service.service.UserServiceClient;
 import com.rehabai.auth_service.model.UserRole;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +34,23 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Tag(
+    name = "Authentication",
+    description = """
+        # 🔐 Endpoints de Autenticação e Autorização
+        
+        Gerenciamento completo de autenticação JWT, incluindo registro, login, 
+        refresh de tokens e logout.
+        
+        ## Fluxo de Autenticação
+        
+        1. **Registro**: Crie uma conta com `/auth/register`
+        2. **Login**: Autentique com `/auth/login`
+        3. **Usar API**: Use o `accessToken` em outros endpoints
+        4. **Renovar**: Quando expirar, use `/auth/refresh`
+        5. **Logout**: Revogue tokens com `/auth/logout`
+        """
+)
 public class AuthController {
 
     private final UserService userService;
@@ -32,10 +58,153 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
 
+    @Operation(
+        summary = "Registrar novo usuário",
+        description = """
+            # 📝 Registro de Novo Usuário
+            
+            Cria uma nova conta no sistema com email, senha e role.
+            
+            ## Regras de Criação de Roles:
+            
+            - **PATIENT**: Qualquer pessoa pode criar (não requer autenticação)
+            - **CLINICIAN**: Qualquer pessoa pode criar (não requer autenticação)
+            - **ADMIN**: Requer ser ADMIN ou ser o primeiro usuário do sistema (bootstrap)
+            
+            ## Validações:
+            
+            - Email deve ser único
+            - Senha deve ter mínimo 6 caracteres
+            - Nome completo obrigatório
+            
+            ## Retorno:
+            
+            - `accessToken`: Token JWT para autenticação (válido por 1 hora)
+            - `refreshToken`: Token para renovação (válido por 7 dias)
+            
+            ## Exemplo de Uso:
+            
+            ```bash
+            curl -X POST http://localhost:8081/auth/register \\
+              -H "Content-Type: application/json" \\
+              -d '{
+                "fullName": "João Silva",
+                "email": "joao@example.com",
+                "password": "senha123",
+                "role": "PATIENT"
+              }'
+            ```
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201",
+            description = "✅ Usuário registrado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = AuthResponse.class),
+                examples = @ExampleObject(
+                    name = "Sucesso",
+                    value = """
+                        {
+                          "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                          "tokenType": "Bearer",
+                          "expiresIn": 3600000,
+                          "refreshToken": "550e8400-e29b-41d4-a716-446655440000",
+                          "refreshExpiresIn": 604800000
+                        }
+                        """
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "❌ Dados inválidos ou email já cadastrado",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "Email Duplicado",
+                        value = """
+                            {
+                              "error": "email_already_exists",
+                              "message": "Email já cadastrado"
+                            }
+                            """
+                    ),
+                    @ExampleObject(
+                        name = "Dados Inválidos",
+                        value = """
+                            {
+                              "error": "invalid_data",
+                              "message": "Senha deve ter no mínimo 6 caracteres"
+                            }
+                            """
+                    )
+                }
+            )
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "🔒 Não autorizado a criar ADMIN",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "\"admin_only\""
+                )
+            )
+        )
+    })
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req,
-                                      @RequestHeader(value = "Authorization", required = false) String authHeader,
-                                      Authentication authentication) {
+    public ResponseEntity<?> register(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Dados do novo usuário",
+                required = true,
+                content = @Content(
+                    schema = @Schema(implementation = RegisterRequest.class),
+                    examples = {
+                        @ExampleObject(
+                            name = "Patient",
+                            description = "Registro de paciente",
+                            value = """
+                                {
+                                  "fullName": "Maria Santos",
+                                  "email": "maria@example.com",
+                                  "password": "senha123",
+                                  "role": "PATIENT"
+                                }
+                                """
+                        ),
+                        @ExampleObject(
+                            name = "Clinician",
+                            description = "Registro de profissional de saúde",
+                            value = """
+                                {
+                                  "fullName": "Dr. João Silva",
+                                  "email": "joao.silva@clinic.com",
+                                  "password": "senha456",
+                                  "role": "CLINICIAN"
+                                }
+                                """
+                        ),
+                        @ExampleObject(
+                            name = "Admin",
+                            description = "Registro de administrador (requer permissão)",
+                            value = """
+                                {
+                                  "fullName": "Admin System",
+                                  "email": "admin@rehabai.com",
+                                  "password": "admin123",
+                                  "role": "ADMIN"
+                                }
+                                """
+                        )
+                    }
+                )
+            )
+            @Valid @RequestBody RegisterRequest req,
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Parameter(hidden = true) Authentication authentication) {
         try {
             // Enforce role creation rules
             if (req.role() == UserRole.ADMIN) {
@@ -72,8 +241,134 @@ public class AuthController {
         }
     }
 
+    @Operation(
+        summary = "Login no sistema",
+        description = """
+            # 🔓 Autenticação de Usuário
+            
+            Autentica um usuário existente e retorna tokens JWT.
+            
+            ## Como Funciona:
+            
+            1. Valida email e senha
+            2. Gera `accessToken` JWT (válido por 1 hora)
+            3. Gera `refreshToken` UUID (válido por 7 dias)
+            4. Retorna ambos os tokens
+            
+            ## Usar o Access Token:
+            
+            Inclua o token no header de todas as requisições autenticadas:
+            
+            ```
+            Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            ```
+            
+            ## Renovar Token Expirado:
+            
+            Quando o `accessToken` expirar (após 1 hora), use `/auth/refresh` 
+            com o `refreshToken` para obter novos tokens.
+            
+            ## Exemplo de Uso:
+            
+            ```bash
+            curl -X POST http://localhost:8081/auth/login \\
+              -H "Content-Type: application/json" \\
+              -d '{
+                "email": "joao@example.com",
+                "password": "senha123"
+              }'
+            ```
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "✅ Login realizado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = AuthResponse.class),
+                examples = @ExampleObject(
+                    name = "Sucesso",
+                    value = """
+                        {
+                          "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2FvQGV4YW1wbGUuY29tIiwidXNlcl9pZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMCIsInJvbGVzIjpbIlJPTEVfUEFUSUVOVCJdLCJpYXQiOjE2OTk1MzYwMDAsImV4cCI6MTY5OTUzOTYwMH0.abc123",
+                          "tokenType": "Bearer",
+                          "expiresIn": 3600000,
+                          "refreshToken": "660e8400-e29b-41d4-a716-446655440000",
+                          "refreshExpiresIn": 604800000
+                        }
+                        """
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "❌ Credenciais inválidas",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "\"invalid_credentials\""
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "503",
+            description = "⚠️ Serviço temporariamente indisponível",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = """
+                        {
+                          "error": "service_unavailable",
+                          "message": "Authentication service temporarily unavailable"
+                        }
+                        """
+                )
+            )
+        )
+    })
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+    public ResponseEntity<?> login(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Credenciais de login (email e senha)",
+                required = true,
+                content = @Content(
+                    schema = @Schema(implementation = LoginRequest.class),
+                    examples = {
+                        @ExampleObject(
+                            name = "Patient",
+                            description = "Login de paciente",
+                            value = """
+                                {
+                                  "email": "maria@example.com",
+                                  "password": "senha123"
+                                }
+                                """
+                        ),
+                        @ExampleObject(
+                            name = "Clinician",
+                            description = "Login de profissional",
+                            value = """
+                                {
+                                  "email": "joao.silva@clinic.com",
+                                  "password": "senha456"
+                                }
+                                """
+                        ),
+                        @ExampleObject(
+                            name = "Admin",
+                            description = "Login de administrador",
+                            value = """
+                                {
+                                  "email": "admin@rehabai.com",
+                                  "password": "admin123"
+                                }
+                                """
+                        )
+                    }
+                )
+            )
+            @Valid @RequestBody LoginRequest req) {
         try {
             UserDetails ud = userService.loadUserByUsername(req.email());
             if (ud == null) {
@@ -107,8 +402,105 @@ public class AuthController {
         }
     }
 
+    @Operation(
+        summary = "Renovar access token",
+        description = """
+            # 🔄 Refresh Token
+            
+            Renova um `accessToken` expirado usando o `refreshToken`.
+            
+            ## Quando Usar:
+            
+            - Quando o `accessToken` expirar (após 1 hora)
+            - Para manter o usuário autenticado sem pedir senha novamente
+            
+            ## Como Funciona:
+            
+            1. Valida o `refreshToken`
+            2. Gera novo `accessToken` (válido por 1 hora)
+            3. **Rotaciona** o `refreshToken` (invalidando o antigo)
+            4. Retorna novos tokens
+            
+            ## ⚠️ Importante: Token Rotation
+            
+            O `refreshToken` é **rotacionado** (one-time use):
+            - O token antigo é invalidado
+            - Um novo `refreshToken` é gerado
+            - Use sempre o token mais recente
+            
+            ## Expiração:
+            
+            - Se o `refreshToken` também expirou (após 7 dias), o usuário 
+              precisa fazer login novamente
+            
+            ## Exemplo de Uso:
+            
+            ```bash
+            curl -X POST http://localhost:8081/auth/refresh \\
+              -H "Content-Type: application/json" \\
+              -d '{
+                "refreshToken": "660e8400-e29b-41d4-a716-446655440000"
+              }'
+            ```
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "✅ Token renovado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = AuthResponse.class),
+                examples = @ExampleObject(
+                    name = "Sucesso",
+                    value = """
+                        {
+                          "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                          "tokenType": "Bearer",
+                          "expiresIn": 3600000,
+                          "refreshToken": "770e8400-e29b-41d4-a716-446655440000",
+                          "refreshExpiresIn": 604800000
+                        }
+                        """
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "❌ Refresh token inválido ou expirado",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "Token Expirado",
+                        value = "\"expired_refresh_token\""
+                    ),
+                    @ExampleObject(
+                        name = "Token Inválido",
+                        value = "\"invalid_refresh_token\""
+                    )
+                }
+            )
+        )
+    })
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
+    public ResponseEntity<?> refresh(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Refresh token para renovação",
+                required = true,
+                content = @Content(
+                    schema = @Schema(implementation = RefreshRequest.class),
+                    examples = @ExampleObject(
+                        name = "Refresh Request",
+                        value = """
+                            {
+                              "refreshToken": "660e8400-e29b-41d4-a716-446655440000"
+                            }
+                            """
+                    )
+                )
+            )
+            @Valid @RequestBody RefreshRequest req) {
         try {
             UUID tokenId = UUID.fromString(req.refreshToken());
             var newRt = refreshTokenService.rotate(tokenId);
@@ -128,8 +520,68 @@ public class AuthController {
         }
     }
 
+    @Operation(
+        summary = "Logout (invalidar refresh token)",
+        description = """
+            # 🚪 Logout do Sistema
+            
+            Invalida um `refreshToken` específico, fazendo logout do usuário.
+            
+            ## Como Funciona:
+            
+            1. Recebe o `refreshToken`
+            2. Revoga/invalida o token
+            3. Token não pode mais ser usado para refresh
+            
+            ## ⚠️ Nota Importante:
+            
+            - Invalida apenas o `refreshToken` fornecido
+            - O `accessToken` continua válido até expirar (1 hora)
+            - Para invalidar todos os tokens, use `/auth/logout_all`
+            
+            ## Segurança:
+            
+            - Cliente deve descartar o `accessToken` localmente
+            - Token não pode mais ser renovado
+            
+            ## Exemplo de Uso:
+            
+            ```bash
+            curl -X POST http://localhost:8081/auth/logout \\
+              -H "Content-Type: application/json" \\
+              -d '{
+                "refreshToken": "660e8400-e29b-41d4-a716-446655440000"
+              }'
+            ```
+            """
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "204",
+            description = "✅ Logout realizado com sucesso (sem conteúdo)"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "❌ Refresh token inválido ou malformado"
+        )
+    })
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest req) {
+    public ResponseEntity<Void> logout(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Refresh token a ser invalidado",
+                required = true,
+                content = @Content(
+                    schema = @Schema(implementation = LogoutRequest.class),
+                    examples = @ExampleObject(
+                        value = """
+                            {
+                              "refreshToken": "660e8400-e29b-41d4-a716-446655440000"
+                            }
+                            """
+                    )
+                )
+            )
+            @Valid @RequestBody LogoutRequest req) {
         try {
             UUID tokenId = UUID.fromString(req.refreshToken());
             refreshTokenService.revokeToken(tokenId);
@@ -139,8 +591,60 @@ public class AuthController {
         }
     }
 
+    @Operation(
+        summary = "Logout de todos os dispositivos",
+        description = """
+            # 🚪🚪 Logout Global (Todos os Dispositivos)
+            
+            Invalida **TODOS** os refresh tokens do usuário autenticado.
+            
+            ## Quando Usar:
+            
+            - Suspeita de conta comprometida
+            - Trocar senha
+            - Fazer logout forçado de todos os dispositivos
+            
+            ## Como Funciona:
+            
+            1. Extrai `user_id` do JWT no header Authorization
+            2. Revoga **todos** os refresh tokens do usuário
+            3. Usuário precisa fazer login novamente em todos os dispositivos
+            
+            ## 🔐 Autenticação Obrigatória:
+            
+            Requer `accessToken` válido no header:
+            
+            ```
+            Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            ```
+            
+            ## Exemplo de Uso:
+            
+            ```bash
+            curl -X POST http://localhost:8081/auth/logout_all \\
+              -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            ```
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "204",
+            description = "✅ Logout global realizado com sucesso (todos os tokens invalidados)"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "❌ Token JWT inválido, expirado ou ausente"
+        )
+    })
     @PostMapping("/logout_all")
-    public ResponseEntity<Void> logoutAll(@RequestHeader(name = "Authorization") String authHeader) {
+    public ResponseEntity<Void> logoutAll(
+            @Parameter(
+                description = "Token JWT de autenticação (formato: Bearer <token>)",
+                required = true,
+                example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            )
+            @RequestHeader(name = "Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
