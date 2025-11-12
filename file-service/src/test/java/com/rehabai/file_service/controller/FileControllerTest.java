@@ -1,5 +1,6 @@
 package com.rehabai.file_service.controller;
 
+import com.rehabai.file_service.model.FileType;
 import com.rehabai.file_service.security.SecurityHelper;
 import com.rehabai.file_service.model.FileStatus;
 import com.rehabai.file_service.model.IngestionFile;
@@ -64,7 +65,7 @@ class FileControllerTest {
 
         Mockito.doNothing().when(securityHelper).requireClinician();
 
-        Mockito.when(storageService.upload(any(), eq(patientId)))
+        Mockito.when(storageService.upload(any(), eq(patientId), FileType.IMAGE))
                 .thenReturn(savedFile);
 
         mvc.perform(multipart("/files/upload")
