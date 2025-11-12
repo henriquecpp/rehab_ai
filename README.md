@@ -4,7 +4,7 @@ Plataforma de prescrição personalizada de exercícios de reabilitação com **
 
 ## ✨ Funcionalidades Principais
 
-### 🤖 **Geração de Planos com IA** (NOVO!)
+### 🤖 **Geração de Planos com IA**
 - Upload de laudos médicos (PDF/imagem)
 - OCR automático com AWS Textract
 - Processamento assíncrono via RabbitMQ
@@ -80,24 +80,6 @@ docker-compose logs -f
 # Parar serviços
 docker-compose down
 ```
-
----
-
-## 📖 Documentação
-
-### 🎯 **Início Rápido**
-- **[INDICE-MASTER.md](INDICE-MASTER.md)** - Índice completo de toda documentação
-- **[QUICK-START-PLAN-DRAFT.md](QUICK-START-PLAN-DRAFT.md)** - Comandos essenciais
-
-### 📊 **Entendimento do Fluxo**
-- **[FLUXO-VISUAL-RESUMIDO.md](FLUXO-VISUAL-RESUMIDO.md)** - Visão geral em 4 etapas
-- **[FLUXO-COMPLETO-UPLOAD-TO-DRAFT.md](FLUXO-COMPLETO-UPLOAD-TO-DRAFT.md)** - Detalhamento completo
-- **[SEQUENCE-DIAGRAM-UPLOAD-TO-DRAFT.md](SEQUENCE-DIAGRAM-UPLOAD-TO-DRAFT.md)** - Diagrama técnico
-
-### 🔧 **Implementação**
-- **[PRESCRIPTION-SERVICE-IMPROVEMENTS.md](PRESCRIPTION-SERVICE-IMPROVEMENTS.md)** - Guia técnico
-- **[PRESCRIPTION-SERVICE-COMPLETE.md](PRESCRIPTION-SERVICE-COMPLETE.md)** - Resumo executivo
-- **[API-ENDPOINTS-COMPLETE.md](API-ENDPOINTS-COMPLETE.md)** - 70+ endpoints documentados
 
 ---
 
