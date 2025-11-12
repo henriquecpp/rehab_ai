@@ -2,6 +2,8 @@ package com.rehabai.prescription_service.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -24,12 +26,11 @@ public class Prescription {
     @Column(name = "normalization_id", nullable = false)
     private UUID normalizationId;
 
-    @Lob
-    @Column(name = "prescription_text")
+    @Column(name = "prescription_text", columnDefinition = "TEXT")
     private String prescriptionText;
 
-    @Lob
-    @Column(name = "parameters_json")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "parameters_json", columnDefinition = "JSONB")
     private String parametersJson;
 
     @Column(name = "prompt_version", length = 50)
