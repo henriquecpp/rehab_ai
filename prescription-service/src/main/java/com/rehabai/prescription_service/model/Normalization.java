@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "normalizations", indexes = {
@@ -28,12 +30,12 @@ public class Normalization {
     @Column(name = "extraction_id", nullable = false)
     private UUID extractionId;
 
-    @Lob
-    @Column(name = "normalized_terms")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "normalized_terms", columnDefinition = "JSONB")
     private String normalizedTerms;
 
-    @Lob
-    @Column(name = "rules_applied")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "rules_applied", columnDefinition = "JSONB")
     private String rulesApplied;
 
     @Column(name = "confidence")
