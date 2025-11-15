@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.bedrockruntime.model.ValidationException;: Para capturar erros de guardrail
+import software.amazon.awssdk.services.bedrockruntime.model.ValidationException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
