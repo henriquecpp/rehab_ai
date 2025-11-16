@@ -35,9 +35,6 @@
 import { useAuthStore } from '~/store/auth';
 const authStore = useAuthStore();
 
-// --- Lógica do Menu Dinâmico ---
-// Estes são os menus do seu mockup original em HTML
-// Mapeamos eles para os ROLES da sua API
 
 const clinicianMenu = [
   { id: 'dashboard', icon: '📊', label: 'Dashboard', path: '/' },

@@ -34,7 +34,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/store/auth';
 
-// Setup para v-model
 const props = defineProps({ modelValue: Boolean })
 const emit = defineEmits(['update:modelValue'])
 
@@ -53,10 +52,8 @@ async function handleRegister() {
   isLoading.value = true;
   errorMsg.value = null;
   try {
-    // Chama a action do store (Seção 1.1)
     await authStore.register(form.value);
-    // O redirecionamento é feito no store
-    emit('update:modelValue', false) // Fecha o modal
+    emit('update:modelValue', false)
   } catch (error: any) {
     console.error(error)
     if (error.data?.code === 'email_already_exists') {
@@ -71,7 +68,6 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-/* ... (estilos dos forms) ... */
 .form-label { @apply mb-2 block text-sm font-semibold text-gray-700; }
 .form-input { @apply w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary; }
 .btn-primary { @apply flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-70; }

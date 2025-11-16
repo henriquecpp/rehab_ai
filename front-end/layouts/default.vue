@@ -1,8 +1,9 @@
+// front-end/layouts/default.vue
 <template>
   <div class="flex min-h-screen">
     <AppSidebar />
     
-    <main class="flex-1 bg-gray-50" style="margin-left: 280px;">
+    <main class="flex-1 bg-gray-50 ml-72">
       
       <AppHeader />
       
@@ -14,6 +15,4 @@
 </template>
 
 <script setup lang="ts">
-// Este layout não precisa de script, mas se você precisar
-// buscar dados que valem para todo o layout, pode fazer aqui.
 </script>

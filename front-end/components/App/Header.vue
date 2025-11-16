@@ -21,23 +21,17 @@ import { useAuthStore } from '~/store/auth';
 const authStore = useAuthStore();
 const route = useRoute();
 
-// Precisamos buscar o estado do usuário (paciente) que está sendo visualizado
-// Isso é um pouco mais avançado, mas vamos simplificar por enquanto
-// Esta é uma maneira de acessar dados buscados em uma página
 const patientName = useNuxtData(route.path.startsWith('/users/') ? `/users/${route.params.id}` : 'non-user-key')?.value?.fullName;
 
-// Lógica de título atualizada
 const pageTitle = computed(() => {
-  // Se estivermos na página de um paciente, mostre o nome dele
   if (route.name === 'patients-id' && patientName) {
     return patientName;
   }
   
-  // Lógica de menu padrão
+
   const menu = {
     '/patients': 'Pacientes',
     '/prescribe': 'Nova Prescrição',
-    // Adicione outras rotas aqui
   }
   return menu[route.path as keyof typeof menu] || 'Dashboard';
 })
