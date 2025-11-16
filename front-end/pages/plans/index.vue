@@ -32,6 +32,25 @@
 
     <div v-if="selectedPatientId" class="mt-6 flex flex-col gap-8">
       <section>
+        <h2 class="section-title">Novo Plano</h2>
+        <hr class="section-hr" />
+        <div class="item-card bg-white border-gray-200">
+          <div class="flex-1">
+            <h4 class="font-semibold">Criar um novo plano do zero</h4>
+            <p class="text-sm text-gray-600">
+              Comece um plano de reabilitação vazio para este paciente.
+            </p>
+          </div>
+          <NuxtLink
+            :to="`/plans/create?userId=${selectedPatientId}`"
+            class="btn-primary"
+          >
+            Criar Plano Vazio &rarr;
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section>
         <h2 class="section-title">
           Prescrições Pendentes da IA
           <span v-if="!prescriptionsPending" class="section-count">
@@ -81,7 +100,7 @@
               :to="`/plans/create?prescriptionId=${pres.id}&userId=${selectedPatientId}`"
               class="btn-primary"
             >
-              Revisar e Criar Plano &rarr;
+              Usar prescrição como base &rarr;
             </NuxtLink>
           </div>
         </div>
@@ -137,8 +156,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from "vue";
+import type { PrescriptionListItem } from "~/types/prescription";
+
 definePageMeta({ middleware: "auth-only" });
 
+// --- Interfaces (movidas para o topo para clareza) ---
 interface Patient {
   id: string;
   email: string;
@@ -152,16 +175,11 @@ interface Plan {
   status: "DRAFT" | "APPROVED" | "ARCHIVED";
   createdAt: string;
 }
-interface GeneratedPrescription {
-  id: string;
-  prescriptionText: string;
-  modelUsed: string;
-  guardrailStatus: "OK" | "BLOCKED";
-  createdAt: string;
-}
 interface PlanData {
   title?: string;
 }
+
+// --- Lógica de Fetching (existente) ---
 const {
   data: patients,
   pending: patientsPending,
@@ -193,11 +211,12 @@ const {
   }
 );
 
+// Atualizado para usar a nova interface PrescriptionListItem
 const {
   data: prescriptions,
   pending: prescriptionsPending,
   error: prescriptionsError,
-} = await useApiFetch<GeneratedPrescription[]>(
+} = await useApiFetch<PrescriptionListItem[]>(
   computed(() =>
     patientIdComputed.value
       ? `/prescriptions/user/${patientIdComputed.value}`
@@ -210,11 +229,16 @@ const {
   }
 );
 
+// --- Funções Helper (existentes, sem 'cleanInvalidJson') ---
 function getPlanTitle(jsonString: string): string {
+  if (!jsonString) {
+    return "Prescrição sem título";
+  }
   try {
     const data = JSON.parse(jsonString) as PlanData;
     return data.title || "Plano sem título";
   } catch (e) {
+    console.error("Falha ao ler título da prescrição:", e);
     return "Erro ao ler título";
   }
 }
@@ -245,6 +269,7 @@ function getGuardrailClass(status: string) {
 </script>
 
 <style scoped>
+/* Estilos existentes do seu arquivo */
 .form-input {
   @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm;
 }
