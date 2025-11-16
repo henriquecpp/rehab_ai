@@ -1,7 +1,7 @@
-// store/auth.ts
-import { defineStore } from 'pinia';
-import { decodeJwtPayload } from '~/utils/jwt';
-import { $api } from '~/utils/api';
+// front-end/store/auth.ts
+import { defineStore } from "pinia";
+import { decodeJwtPayload } from "~/utils/jwt";
+import { $api } from "~/utils/api";
 
 interface AuthResponse {
   token: string;
@@ -12,22 +12,23 @@ interface UserProfile {
   id: string;
   email: string;
   fullName: string;
-  role: 'PATIENT' | 'CLINICIAN' | 'ADMIN';
+  role: "PATIENT" | "CLINICIAN" | "ADMIN";
   active: boolean;
 }
 
-export const useAuthStore = defineStore('auth', () => {
-  // STATE
+export const useAuthStore = defineStore("auth", () => {
   const user = ref<UserProfile | null>(null);
-  const token = useCookie<string | null>('auth-token');
-  const refreshToken = useCookie<string | null>('auth-refresh-token');
+  const token = useCookie<string | null>("auth-token");
+  const refreshToken = useCookie<string | null>("auth-refresh-token");
   const isRefreshing = ref(false);
+  const isAuthLoading = ref(true);
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
-  const isAdmin = computed(() => user.value?.role === 'ADMIN');
-  const isClinician = computed(() => user.value?.role === 'CLINICIAN' || isAdmin.value);
-  const isPatient = computed(() => user.value?.role === 'PATIENT');
-
+  const isAdmin = computed(() => user.value?.role === "ADMIN");
+  const isClinician = computed(
+    () => user.value?.role === "CLINICIAN" || isAdmin.value
+  );
+  const isPatient = computed(() => user.value?.role === "PATIENT");
 
   async function setLoginData(mainToken: string, newRefreshToken: string) {
     token.value = mainToken;
@@ -35,23 +36,21 @@ export const useAuthStore = defineStore('auth', () => {
 
     const payload = decodeJwtPayload(mainToken);
 
-    if (!payload || !payload.user_id) { 
-      throw new Error('Invalid JWT payload: missing user_id');
+    if (!payload || !payload.user_id) {
+      throw new Error("Invalid JWT payload: missing user_id");
     }
-    
-    await fetchUser(payload.user_id); 
+
+    await fetchUser(payload.user_id);
   }
 
   async function fetchUser(userId: string) {
     try {
       const data = await $api<UserProfile>(`/users/${userId}`, {
-        method: 'GET'
+        method: "GET",
       });
-      
       user.value = data || null;
-
     } catch (error) {
-      console.error('Failed to fetch user data', error);
+      console.error("Failed to fetch user data", error);
       await performLogout();
     }
   }
@@ -65,8 +64,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email: string, password: string) {
     try {
-      const response = await $api<AuthResponse>('/auth/login', {
-        method: 'POST',
+      const response = await $api<AuthResponse>("/auth/login", {
+        method: "POST",
         body: { email, password },
       });
 
@@ -75,48 +74,51 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       await setLoginData(response.token, response.refreshToken);
-
-      await navigateTo('/');
-
-    } catch (error) { 
-      console.error('Login failed', error);
+      await navigateTo("/");
+    } catch (error) {
+      console.error("Login failed", error);
       await performLogout();
-      throw error; 
+      throw error;
     }
   }
 
-  async function register(data: { email: string, password: string, fullName: string, role: 'PATIENT' | 'CLINICIAN' }) {
+  async function register(data: {
+    email: string;
+    password: string;
+    fullName: string;
+    role: "PATIENT" | "CLINICIAN";
+  }) {
     try {
-      const response = await $api<AuthResponse>('/auth/register', {
-        method: 'POST',
+      const response = await $api<AuthResponse>("/auth/register", {
+        method: "POST",
         body: data,
       });
       if (!response.token) {
         throw new Error("API response missing 'token'");
       }
       await setLoginData(response.token, response.refreshToken);
-      await navigateTo('/');
+      await navigateTo("/");
     } catch (error) {
-      console.error('Registration failed', error);
+      console.error("Registration failed", error);
       await performLogout();
-      throw error; 
+      throw error;
     }
   }
 
   async function logout() {
     if (refreshToken.value) {
       try {
-        await $api('/auth/logout', {
-          method: 'POST',
+        await $api("/auth/logout", {
+          method: "POST",
           body: { refreshToken: refreshToken.value },
         });
       } catch (error) {
-        console.error('Failed to revoke refresh token', error);
+        console.error("Failed to revoke refresh token", error);
       }
     }
-    
+
     await performLogout();
-    await navigateTo('/login');
+    await navigateTo("/login");
   }
 
   async function refresh() {
@@ -127,25 +129,25 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (!localRefreshToken) {
       isRefreshing.value = false;
-      return await performLogout();
+      await performLogout();
+      return false;
     }
 
     try {
-      const response = await $api<AuthResponse>('/auth/refresh', {
-        method: 'POST',
+      const response = await $api<AuthResponse>("/auth/refresh", {
+        method: "POST",
         body: { refreshToken: localRefreshToken },
       });
 
       if (!response.token) {
         throw new Error("Refresh response missing 'token'");
       }
-      
+
       token.value = response.token;
       refreshToken.value = response.refreshToken;
-      
+
       isRefreshing.value = false;
       return true;
-
     } catch (error) {
       console.error("Token refresh failed", error);
       await performLogout();
@@ -154,11 +156,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function initAuth() {
+    isAuthLoading.value = true;
+    if (token.value) {
+      try {
+        const payload = decodeJwtPayload(token.value);
+        if (payload && payload.user_id) {
+          await fetchUser(payload.user_id);
+        } else {
+          await performLogout();
+        }
+      } catch (e) {
+        await performLogout();
+      }
+    }
+    isAuthLoading.value = false;
+  }
+
   return {
     user,
     token,
     refreshToken,
-    isRefreshing, 
+    isRefreshing,
+    isAuthLoading,
     isAuthenticated,
     isAdmin,
     isClinician,
@@ -166,6 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
-    refresh, 
+    refresh,
+    initAuth,
   };
 });
