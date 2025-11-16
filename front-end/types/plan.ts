@@ -1,3 +1,5 @@
+import type { PlanDraftResponse } from './prescription'
+
 export type PlanStatus = 'DRAFT' | 'APPROVED' | 'ARCHIVED'
 
 export interface PlanResponse {
@@ -10,3 +12,11 @@ export interface PlanResponse {
   createdAt: string
   updatedAt: string
 }
+
+export interface CreatePlanRequest {
+  userId: string
+  prescriptionId: string
+  planData: string
+}
+
+export type EditablePlan = PlanDraftResponse
