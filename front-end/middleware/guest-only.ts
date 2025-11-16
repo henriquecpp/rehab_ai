@@ -6,7 +6,6 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
   if (authStore.isAuthenticated) {
     console.warn('GUEST-ONLY: Usuário já autenticado. Redirecionando para /.');
-    // Envia o usuário para a home page
     return navigateTo('/', { replace: true });
   }
 });
