@@ -1,11 +1,16 @@
 <template>
-  <div>
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
+  <div
+    v-if="authStore.isAuthLoading"
+    class="fixed inset-0 flex items-center justify-center bg-gray-100"
+  >
+    <p>Carregando...</p>
   </div>
+
+  <NuxtLayout v-if="!authStore.isAuthLoading">
+    <NuxtPage />
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-// Nenhum script é necessário aqui, ele apenas renderiza o layout
+const authStore = useAuthStore();
 </script>
