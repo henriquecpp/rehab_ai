@@ -58,25 +58,15 @@
               required
             />
           </div>
-          <div>
-            <label for="duration" class="form-label">Duração (dias)</label>
-            <input
-              id="duration"
-              v-model.number="editablePlan.duration"
-              type="number"
+          <div class="md:col-span-2">
+            <label for="description" class="form-label">Descrição</label>
+            <textarea
+              id="description"
+              v-model="editablePlan.description"
+              rows="2"
               class="form-input"
-              required
-            />
-          </div>
-          <div>
-            <label for="frequency" class="form-label">Frequência Geral</label>
-            <input
-              id="frequency"
-              v-model="editablePlan.frequency"
-              type="text"
-              class="form-input"
-              placeholder="Ex: 3x por semana"
-            />
+              placeholder="Breve descrição do plano..."
+            ></textarea>
           </div>
           <div class="md:col-span-2">
             <label for="goals" class="form-label"
@@ -89,6 +79,93 @@
               type="text"
               class="form-input"
               placeholder="Ex: Reduzir dor, Aumentar mobilidade"
+            />
+          </div>
+          <div class="md:col-span-2">
+            <label for="notes" class="form-label">Notas Clínicas</label>
+            <textarea
+              id="notes"
+              v-model="editablePlan.notes"
+              rows="2"
+              class="form-input"
+              placeholder="Notas adicionais para o paciente ou outros clínicos..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6 bg-white rounded-lg shadow-md border border-gray-200">
+        <h2 class="text-xl font-semibold mb-4 border-b pb-2">
+          Metadados Clínicos
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="priority" class="form-label">Prioridade</label>
+            <select
+              id="priority"
+              v-model="editablePlan.priority"
+              class="form-input"
+            >
+              <option value="LOW">Baixa</option>
+              <option value="MEDIUM">Média</option>
+              <option value="HIGH">Alta</option>
+            </select>
+          </div>
+          <div>
+            <label for="tags" class="form-label"
+              >Tags (separadas por vírgula)</label
+            >
+            <input
+              id="tags"
+              :value="editablePlan.tags.join(', ')"
+              @input="updateTags"
+              type="text"
+              class="form-input"
+              placeholder="Ex: Pos-operatorio, Fortalecimento"
+            />
+          </div>
+          <div>
+            <label for="painLevelStart" class="form-label"
+              >Nível de Dor Inicial (0-10)</label
+            >
+            <input
+              id="painLevelStart"
+              v-model.number="editablePlan.painLevelStart"
+              type="number"
+              min="0"
+              max="10"
+              class="form-input"
+            />
+          </div>
+          <div>
+            <label for="painLevelExpectedEnd" class="form-label"
+              >Dor Esperada no Final (0-10)</label
+            >
+            <input
+              id="painLevelExpectedEnd"
+              v-model.number="editablePlan.painLevelExpectedEnd"
+              type="number"
+              min="0"
+              max="10"
+              class="form-input"
+            />
+          </div>
+          <div>
+            <label for="startDate" class="form-label">Data de Início</label>
+            <input
+              id="startDate"
+              v-model="editablePlan.startDate"
+              type="date"
+              class="form-input"
+            />
+          </div>
+          <div>
+            <label for="endDate" class="form-label">Data de Término</label>
+            <input
+              id="endDate"
+              v-model="editablePlan.endDate"
+              type="date"
+              class="form-input"
             />
           </div>
         </div>
@@ -175,7 +252,7 @@
     </form>
 
     <div v-else class="text-center p-10 text-gray-600">
-      <p>Não foi possível carregar os dados da prescrição.</p>
+      <p>Não foi possível carregar os dados.</p>
     </div>
 
     <UIBaseModal
@@ -213,7 +290,6 @@
           </div>
         </div>
       </div>
-
       <template #footer>
         <button
           type="button"
@@ -241,8 +317,12 @@ import type {
   PrescriptionResponse,
   PrescriptionListItem,
 } from "~/types/prescription";
-import type { CreatePlanRequest } from "~/types/plan";
+import type {
+  CreatePlanRequest,
+  PlanDataStructure,
+} from "~/types/plan";
 import type { ExerciseDto } from "~/types/exercise";
+import type { NuxtError } from "#app";
 
 definePageMeta({
   middleware: ["auth-only"],
@@ -252,96 +332,146 @@ const route = useRoute();
 const router = useRouter();
 const isSubmitting = ref(false);
 
-const prescriptionId = route.query.prescriptionId as string;
-const userId = route.query.userId as string;
+const prescriptionId = computed(() => {
+  const id = route.query.prescriptionId;
+  return Array.isArray(id) ? id[0] : id;
+});
+const userId = computed(() => {
+  const id = route.query.userId;
+  return Array.isArray(id) ? id[0] : id;
+});
 
-// --- LÓGICA DE CARREGAMENTO DO FORMULÁRIO (Sem alterações) ---
-const editablePlan = ref<PlanDraftResponse | null>(null);
+interface EditablePlanForm {
+  userId: string;
+  // Campos do planData
+  title: string;
+  description: string;
+  diagnosis: string;
+  exercises: ExerciseDto[];
+  goals: string[];
+  notes: string;
+  origin: "AI_GENERATED" | "CLINICIAN_CREATED" | "AI_REVIEWED_BY_THERAPIST";
+  confidenceScore?: number | null;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  painLevelStart: number;
+  painLevelExpectedEnd: number;
+  startDate?: string;
+  endDate?: string;
+  tags: string[];
+}
+
+const editablePlan = ref<EditablePlanForm | null>(null);
 const pending = ref(true);
-const error = ref<Error | null>(null);
+// Use o tipo de erro correto do Nuxt
+const error = ref<NuxtError | Error | null>(null);
 
-if (prescriptionId) {
-  // Cenário 1: Carregar de um Rascunho
+// Helper para formatar data: '2025-11-18T09:00:00Z' ou undefined -> '2025-11-18'
+const formatDateForInput = (dateString?: string) => {
+  if (!dateString) return new Date().toISOString().split("T")[0];
+  try {
+    return new Date(dateString).toISOString().split("T")[0];
+  } catch (e) {
+    return new Date().toISOString().split("T")[0];
+  }
+};
+
+// --- LÓGICA DE CARREGAMENTO ---
+if (!userId.value) {
+  // Cenário de Erro: Sem userId
+  error.value = createError({ 
+    statusCode: 400, 
+    statusMessage: "Nenhum ID de usuário fornecido para criar o plano." 
+  });
+  pending.value = false;
+
+} else if (prescriptionId.value) {
+  // Cenário 1: Carregar de um Rascunho existente
   const {
     data: prescriptionData,
     pending: prescriptionPending,
     error: prescriptionError,
   } = await useApiFetch<PrescriptionResponse>(
-    `/prescriptions/${prescriptionId}`,
+    `/prescriptions/${prescriptionId.value}`,
     {
       lazy: false,
     }
   );
-
+  
   pending.value = prescriptionPending.value;
-  error.value = prescriptionError.value;
+  error.value = prescriptionError.value|| null;
 
   if (prescriptionData.value && prescriptionData.value.originalText) {
     try {
-      const parsedPlan = JSON.parse(
+      const parsedDraft = JSON.parse(
         prescriptionData.value.originalText
       ) as PlanDraftResponse;
 
       editablePlan.value = {
-        ...parsedPlan,
         userId: prescriptionData.value.userId,
-        prescriptionId: prescriptionData.value.id,
-        exercises: parsedPlan.exercises || [],
-        goals: parsedPlan.goals || [],
+        title: parsedDraft.title || "",
+        description: parsedDraft.description || "",
+        diagnosis: parsedDraft.diagnosis || "",
+        exercises: parsedDraft.exercises || [],
+        goals: parsedDraft.goals || [],
+        notes: "",
+        origin: "AI_REVIEWED_BY_THERAPIST",
+        confidenceScore: 1,
+        priority: "MEDIUM",
+        painLevelStart: 5,
+        painLevelExpectedEnd: 1,
+        startDate: formatDateForInput(parsedDraft.startDate),
+        endDate: formatDateForInput(parsedDraft.endDate),
+        tags: [],
       };
     } catch (e: any) {
       console.error("Falha ao fazer o parse do JSON da prescrição:", e);
-      error.value = e;
+      error.value = createError({ statusCode: 500, statusMessage: "Falha ao ler dados da prescrição." });
     }
   }
-} else if (userId) {
-  // Cenário 2: Criar um Plano Vazio
+
+} else if (userId.value) {
   editablePlan.value = {
-    userId: userId,
-    prescriptionId: "",
+    userId: userId.value,
     title: "",
     description: "",
     diagnosis: "",
     exercises: [],
     goals: [],
-    duration: 30,
-    frequency: "3x por semana",
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: "",
-    confidenceScore: 0,
-    modelUsed: "manual",
-    guardrailStatus: "N/A",
+    notes: "",
+    origin: "CLINICIAN_CREATED",
+    confidenceScore: 1,
+    priority: "MEDIUM",
+    painLevelStart: 5,
+    painLevelExpectedEnd: 1,
+    startDate: formatDateForInput(),
+    endDate: formatDateForInput(),
+    tags: [],
   };
-  pending.value = false;
-} else {
-  // Cenário de Erro
-  error.value = new Error("Nenhum ID de usuário fornecido para criar o plano.");
   pending.value = false;
 }
 
-// --- LÓGICA DO MODAL DE EXERCÍCIOS (Com lógica de filtro) ---
 const isExerciseModalOpen = ref(false);
 const exercisesToAddToPlan = ref<ExerciseDto[]>([]);
 
+const prescriptionListUrl = computed(() => {
+  return userId.value ? `/prescriptions/user/${userId.value}` : null;
+});
 const {
   data: prescriptionList,
   pending: libPending,
   error: libError,
-} = await useApiFetch<PrescriptionListItem[]>(`/prescriptions/user/${userId}`, {
-  lazy: false,
-  immediate: !!userId,
-});
+} = await useApiFetch<PrescriptionListItem[]>(
+  prescriptionListUrl,
+  {
+    lazy: false,
+  }
+);
 
-// --- ATUALIZAÇÃO ESTÁ AQUI ---
 const exerciseLibrary = computed(() => {
-  // 1. Pega os nomes dos exercícios JÁ NO PLANO
-  // Isso torna esta computed property reativa a 'editablePlan.exercises'
   const exercisesInPlan = editablePlan.value?.exercises || [];
   const namesInPlan = new Set(
-    exercisesInPlan.map((ex) => ex.name.toLowerCase())
+    exercisesInPlan.map(ex => ex.name.toLowerCase())
   );
-
-  // 2. Constrói a biblioteca completa de exercícios históricos
   if (!prescriptionList.value) return [];
   const allExercises: ExerciseDto[] = [];
   for (const pres of prescriptionList.value) {
@@ -354,23 +484,17 @@ const exerciseLibrary = computed(() => {
       console.warn(`Ignorando prescrição malformada: ${pres.id}`);
     }
   }
-
-  // 3. De-duplica a biblioteca
   const uniqueExercises = new Map<string, ExerciseDto>();
   for (const exercise of allExercises) {
     if (exercise.name && !uniqueExercises.has(exercise.name.toLowerCase())) {
       uniqueExercises.set(exercise.name.toLowerCase(), exercise);
     }
   }
-
   const fullLibrary = Array.from(uniqueExercises.values());
-
-  // 4. Filtra a biblioteca, removendo os que já estão no plano
-  return fullLibrary.filter(
-    (exercise) => !namesInPlan.has(exercise.name.toLowerCase())
+  return fullLibrary.filter(exercise => 
+    !namesInPlan.has(exercise.name.toLowerCase())
   );
 });
-// --- FIM DA ATUALIZAÇÃO ---
 
 function addSelectedExercisesToPlan() {
   if (editablePlan.value) {
@@ -389,7 +513,6 @@ function removeExercise(index: number) {
   }
 }
 
-// --- FUNÇÕES HELPER (Sem alterações) ---
 function updateGoals(event: Event) {
   if (editablePlan.value) {
     const target = event.target as HTMLInputElement;
@@ -400,23 +523,61 @@ function updateGoals(event: Event) {
   }
 }
 
+function updateTags(event: Event) {
+  if (editablePlan.value) {
+    const target = event.target as HTMLInputElement;
+    editablePlan.value.tags = target.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+}
+
+const formatDateForApi = (dateString?: string) => {
+  if (!dateString) return undefined;
+  try {
+    return new Date(`${dateString}T00:00:00.000Z`).toISOString();
+  } catch(e) {
+    return undefined;
+  }
+}
+
 async function handleCreatePlan() {
   if (!editablePlan.value) return;
 
   isSubmitting.value = true;
   try {
-    editablePlan.value.prescriptionId = prescriptionId || "";
-    const planDataString = JSON.stringify(editablePlan.value);
+    const planDataToStingify: PlanDataStructure = {
+      title: editablePlan.value.title,
+      description: editablePlan.value.description,
+      diagnosis: editablePlan.value.diagnosis,
+      exercises: editablePlan.value.exercises,
+      goals: editablePlan.value.goals,
+      notes: editablePlan.value.notes,
+    };
+    const planDataString = JSON.stringify(planDataToStingify);
 
     const payload: CreatePlanRequest = {
       userId: editablePlan.value.userId,
-      prescriptionId: prescriptionId || null,
+      prescriptionId: prescriptionId.value || null,
       planData: planDataString,
+      
+      origin: editablePlan.value.origin,
+      confidenceScore: 1,
+      priority: editablePlan.value.priority,
+      painLevelStart: editablePlan.value.painLevelStart,
+      painLevelExpectedEnd: editablePlan.value.painLevelExpectedEnd,
+      startDate: formatDateForApi(editablePlan.value.startDate),
+      endDate: formatDateForApi(editablePlan.value.endDate),
+      tags: editablePlan.value.tags,
+      active: true,
     };
-
+    
     if (!payload.prescriptionId) {
       delete payload.prescriptionId;
     }
+
+    console.dir( { payload }, { depth: null } );
 
     await $api("/plans", {
       method: "POST",
@@ -433,7 +594,6 @@ async function handleCreatePlan() {
 </script>
 
 <style scoped>
-/* Estilos (Existentes) */
 .form-label {
   @apply block mb-1.5 text-sm font-medium text-gray-700;
 }
