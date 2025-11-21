@@ -334,7 +334,6 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
-// Check if user has permission to edit plans
 if (!authStore.isClinician && !authStore.isAdmin) {
   router.push("/plans");
 }
@@ -386,7 +385,6 @@ const formatDateForInput = (dateString?: string) => {
   }
 };
 
-// Load plan data
 const loadPlanData = async () => {
   pending.value = true;
   error.value = null;
@@ -408,7 +406,6 @@ const loadPlanData = async () => {
     planData.value = plan.value;
     currentVersion.value = plan.value.version;
 
-    // Parse planData JSON
     let parsedPlanData: PlanDataStructure;
     try {
       parsedPlanData = JSON.parse(plan.value.planData);
@@ -418,7 +415,6 @@ const loadPlanData = async () => {
       return;
     }
 
-    // Populate editable form
     editablePlan.value = {
       title: parsedPlanData.title || "",
       description: parsedPlanData.description || "",
@@ -441,12 +437,10 @@ const loadPlanData = async () => {
   }
 };
 
-// Load plan on mount
 onMounted(() => {
   loadPlanData();
 });
 
-// Exercise library
 const isExerciseModalOpen = ref(false);
 const exercisesToAddToPlan = ref<ExerciseDto[]>([]);
 
