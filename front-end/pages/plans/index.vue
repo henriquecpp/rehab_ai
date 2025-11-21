@@ -6,7 +6,7 @@
       </div>
     </template>
 
-    <div class="mb-6 max-w-lg">
+    <div v-if="canManagePlans" class="mb-6 max-w-lg">
       <label class="form-label">Selecione um Paciente</label>
       <select
         v-model="selectedPatientId"
@@ -31,7 +31,7 @@
     </div>
 
     <div v-if="selectedPatientId" class="mt-6 flex flex-col gap-8">
-      <section>
+      <section v-if="canManagePlans">
         <h2 class="section-title">Novo Plano</h2>
         <hr class="section-hr" />
         <div class="item-card bg-white border-gray-200">
@@ -50,7 +50,7 @@
         </div>
       </section>
 
-      <section>
+      <section v-if="canManagePlans">
         <h2 class="section-title">
           Prescrições Pendentes da IA
           <span v-if="!prescriptionsPending" class="section-count">
@@ -137,13 +137,48 @@
                 {{ formatDate(plan.createdAt) }}
               </p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
               <span class="badge" :class="getPlanStatusClass(plan.status)">
                 {{ plan.status }}
               </span>
-              <NuxtLink :to="`/patients/${plan.userId}`" class="btn-secondary">
-                Ver Paciente
+              <NuxtLink
+                v-if="canManagePlans || plan.status !== 'DRAFT'"
+                :to="`/plans/${plan.id}`"
+                class="btn-secondary"
+              >
+                Ver Detalhes
               </NuxtLink>
+              <span
+                v-else-if="!canManagePlans && plan.status === 'DRAFT'"
+                class="btn-secondary opacity-50 cursor-not-allowed"
+                title="Plano em rascunho - aguarde aprovação"
+              >
+                🔒 Aguardando Aprovação
+              </span>
+              <button
+                v-if="canManagePlans && plan.status === 'DRAFT'"
+                @click="approvePlan(plan.id)"
+                class="btn-success"
+                :disabled="!!loadingActions[plan.id]"
+              >
+                {{
+                  loadingActions[plan.id] === "approve"
+                    ? "Aprovando..."
+                    : "✓ Aprovar"
+                }}
+              </button>
+              <button
+                v-if="canManagePlans && plan.status !== 'ARCHIVED'"
+                @click="archivePlan(plan.id)"
+                class="btn-archive"
+                :disabled="!!loadingActions[plan.id]"
+              >
+                {{
+                  loadingActions[plan.id] === "archive"
+                    ? "Arquivando..."
+                    : "📦 Arquivar"
+                }}
+              </button>
             </div>
           </div>
         </div>
@@ -157,11 +192,16 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useAuthStore } from "~/store/auth";
 import type { PrescriptionListItem } from "~/types/prescription";
 
 definePageMeta({ middleware: "auth-only" });
 
-// --- Interfaces (movidas para o topo para clareza) ---
+const authStore = useAuthStore();
+const canManagePlans = computed(
+  () => authStore.isClinician || authStore.isAdmin
+);
+
 interface Patient {
   id: string;
   email: string;
@@ -179,18 +219,25 @@ interface PlanData {
   title?: string;
 }
 
-// --- Lógica de Fetching (existente) ---
 const {
   data: patients,
   pending: patientsPending,
   error: patientsError,
-} = await useApiFetch<Patient[]>("/users", {
-  query: { role: "PATIENT" },
-  lazy: true,
-  key: "patientListForPlans",
-});
+} = await useApiFetch<Patient[]>(
+  computed(() => (canManagePlans.value ? "/users" : null)),
+  {
+    query: { role: "PATIENT" },
+    lazy: true,
+    key: "patientListForPlans",
+  }
+);
 
 const selectedPatientId = ref("");
+const loadingActions = ref<Record<string, string | null>>({});
+
+if (authStore.isPatient && authStore.user?.id) {
+  selectedPatientId.value = authStore.user.id;
+}
 
 const patientIdComputed = computed(() => selectedPatientId.value || null);
 const reactiveKey = (prefix: string) =>
@@ -211,7 +258,6 @@ const {
   }
 );
 
-// Atualizado para usar a nova interface PrescriptionListItem
 const {
   data: prescriptions,
   pending: prescriptionsPending,
@@ -229,7 +275,6 @@ const {
   }
 );
 
-// --- Funções Helper (existentes, sem 'cleanInvalidJson') ---
 function getPlanTitle(jsonString: string): string {
   if (!jsonString) {
     return "Prescrição sem título";
@@ -266,10 +311,55 @@ function getPlanStatusClass(status: string) {
 function getGuardrailClass(status: string) {
   return status === "OK" ? "badge-success" : "badge-danger";
 }
+
+async function approvePlan(planId: string) {
+  if (!confirm("Tem certeza que deseja aprovar este plano?")) return;
+
+  loadingActions.value[planId] = "approve";
+  try {
+    await useApiFetch(`/plans/${planId}/approve`, {
+      method: "POST",
+    });
+    alert("Plano aprovado com sucesso!");
+    if (plans.value) {
+      const updatedPlan = plans.value.find((p) => p.id === planId);
+      if (updatedPlan) {
+        updatedPlan.status = "APPROVED";
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao aprovar plano:", error);
+    alert("Erro ao aprovar plano. Tente novamente.");
+  } finally {
+    loadingActions.value[planId] = null;
+  }
+}
+
+async function archivePlan(planId: string) {
+  if (!confirm("Tem certeza que deseja arquivar este plano?")) return;
+
+  loadingActions.value[planId] = "archive";
+  try {
+    await useApiFetch(`/plans/${planId}/archive`, {
+      method: "POST",
+    });
+    alert("Plano arquivado com sucesso!");
+    if (plans.value) {
+      const updatedPlan = plans.value.find((p) => p.id === planId);
+      if (updatedPlan) {
+        updatedPlan.status = "ARCHIVED";
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao arquivar plano:", error);
+    alert("Erro ao arquivar plano. Tente novamente.");
+  } finally {
+    loadingActions.value[planId] = null;
+  }
+}
 </script>
 
 <style scoped>
-/* Estilos existentes do seu arquivo */
 .form-input {
   @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm;
 }
@@ -302,6 +392,12 @@ function getGuardrailClass(status: string) {
 }
 .btn-secondary {
   @apply flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-300;
+}
+.btn-success {
+  @apply flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-archive {
+  @apply flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 .alert-danger {
   @apply mb-4 flex gap-3 rounded-lg border-l-4 border-danger bg-red-50 p-4 text-red-800;
