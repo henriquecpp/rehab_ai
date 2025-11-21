@@ -3,6 +3,7 @@ package com.rehabai.plan_service.repository;
 import com.rehabai.plan_service.model.Plan;
 import com.rehabai.plan_service.model.PlanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -26,5 +27,11 @@ public interface PlanRepository extends JpaRepository<Plan, UUID> {
     Integer findMaxVersionByUserAndPrescription(@Param("userId") UUID userId, @Param("prescriptionId") UUID prescriptionId);
 
     Optional<Plan> findByUserIdAndPrescriptionIdAndVersion(UUID userId, UUID prescriptionId, Integer version);
+
+    List<Plan> findByPrescriptionIdAndActiveTrue(UUID prescriptionId);
+
+    @Modifying
+    @Query("UPDATE Plan p SET p.active = false WHERE p.prescriptionId = :prescriptionId AND p.id != :excludeId AND p.active = true")
+    int deactivateOtherVersions(@Param("prescriptionId") UUID prescriptionId, @Param("excludeId") UUID excludeId);
 }
 
