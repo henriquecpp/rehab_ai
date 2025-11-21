@@ -4,6 +4,7 @@ import com.rehabai.plan_service.security.SecurityHelper;
 import com.rehabai.plan_service.dto.CreatePlanRequest;
 import com.rehabai.plan_service.dto.PlanResponse;
 import com.rehabai.plan_service.dto.UpdatePlanRequest;
+import com.rehabai.plan_service.dto.SetActiveVersionResponse;
 import com.rehabai.plan_service.model.PlanAuditLog;
 import com.rehabai.plan_service.model.PlanStatus;
 import com.rehabai.plan_service.service.PlanService;
@@ -39,7 +40,8 @@ public class PlanController {
     @PostMapping
     public ResponseEntity<PlanResponse> createPlan(@Valid @RequestBody CreatePlanRequest request) {
         securityHelper.requireClinician();
-        PlanResponse response = planService.createPlan(request);
+        UUID therapistId = securityHelper.getAuthenticatedUserId();
+        PlanResponse response = planService.createPlan(request, therapistId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -202,5 +204,39 @@ public class PlanController {
         UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
         PlanResponse response = planService.rollbackToVersion(id, toVersion, authenticatedUserId, reason);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(
+        summary = "Definir versão ativa",
+        description = """
+            # 🔒 **CLINICIAN** - Definir Versão Ativa do Plano
+            
+            Define uma versão específica como ativa e desativa automaticamente todas as outras versões do mesmo plano.
+            
+            ## Como funciona:
+            1. Verifica se a versão especificada já está ativa
+            2. Se já ativa, retorna indicação sem alterações
+            3. Se não, ativa a versão especificada
+            4. Desativa todas as outras versões do mesmo prescriptionId
+            5. Registra log de auditoria
+            
+            ## Retorna:
+            - **wasAlreadyActive**: true se a versão já estava ativa
+            - **deactivatedCount**: número de versões desativadas
+            - **message**: descrição do resultado
+            
+            **Nota:** Apenas uma versão pode estar ativa por vez para cada prescription.
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponse(responseCode = "200", description = "✅ Versão ativa definida com sucesso")
+    @PostMapping("/{id}/set-active")
+    public ResponseEntity<SetActiveVersionResponse> setActiveVersion(
+            @Parameter(description = "UUID do plano a ser ativado") @PathVariable UUID id,
+            @Parameter(description = "UUID de quem está alterando") @RequestParam(required = false) UUID changedBy) {
+        securityHelper.requireClinician();
+        UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
+        SetActiveVersionResponse response = planService.setActiveVersion(id, authenticatedUserId);
+        return ResponseEntity.ok(response);
     }
 }
