@@ -1,7 +1,11 @@
 <template>
-  <aside class="fixed flex h-full w-[280px] flex-col border-r border-gray-200 bg-white z-[100]">
+  <aside
+    class="fixed flex h-full w-[280px] flex-col border-r border-gray-200 bg-white z-[100]"
+  >
     <div class="flex items-center gap-3 border-b border-gray-200 p-6">
-      <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-500 text-xl font-bold text-white">
+      <div
+        class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-500 text-xl font-bold text-white"
+      >
         R
       </div>
       <span class="text-xl font-bold text-gray-900">RehabAI</span>
@@ -15,13 +19,15 @@
         class="nav-item group"
         active-class="active"
       >
-        <span class="flex h-5 w-5 items-center justify-center">{{ item.icon }}</span>
+        <span class="flex h-5 w-5 items-center justify-center">{{
+          item.icon
+        }}</span>
         <span>{{ item.label }}</span>
       </NuxtLink>
     </nav>
 
     <div class="border-t border-gray-200 p-4">
-      <button 
+      <button
         @click="authStore.logout()"
         class="btn-secondary w-full justify-center"
       >
@@ -32,48 +38,77 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from '~/store/auth';
+import { useAuthStore } from "~/store/auth";
 const authStore = useAuthStore();
 
-
 const clinicianMenu = [
-  { id: 'dashboard', icon: '📊', label: 'Dashboard', path: '/' },
-  { id: 'patients', icon: '👥', label: 'Pacientes', path: '/patients' },
-  { id: 'prescribe', icon: '📋', label: 'Nova Prescrição', path: '/prescribe' },
-  { id: 'prescriptions', icon: '🤖', label: 'Prescrições IA', path: '/prescriptions' },
-  { id: 'workflows', icon: '🔄', label: 'Workflows Ativos', path: '/workflows' }, // Página a ser criada
-  { id: 'plans', icon: '📑', label: 'Planos de Reabilitação', path: '/plans' }, // Página a ser criada
-  { id: 'history', icon: '📝', label: 'Históricos Médicos', path: '/history' }, // Página a ser criada
-  { id: 'analytics', icon: '📈', label: 'Analytics', path: '/analytics' } // Página a ser criada
+  { id: "dashboard", icon: "📊", label: "Dashboard", path: "/" },
+  { id: "patients", icon: "👥", label: "Pacientes", path: "/patients" },
+  {
+    id: "prescribe",
+    icon: "📋",
+    label: "Nova Prescrição",
+    path: "/prescriptions/prescribe",
+  },
+  {
+    id: "prescriptions",
+    icon: "🤖",
+    label: "Prescrições IA",
+    path: "/prescriptions",
+  },
+  {
+    id: "workflows",
+    icon: "🔄",
+    label: "Workflows Ativos",
+    path: "/workflows",
+  }, // Página a ser criada
+  { id: "plans", icon: "📑", label: "Planos de Reabilitação", path: "/plans" }, // Página a ser criada
+  { id: "history", icon: "📝", label: "Históricos Médicos", path: "/history" }, // Página a ser criada
+  { id: "analytics", icon: "📈", label: "Analytics", path: "/analytics" }, // Página a ser criada
 ];
 
 const adminMenu = [
-  { id: 'dashboard', icon: '📊', label: 'Dashboard', path: '/' },
-  { id: 'clinic', icon: '🏥', label: 'Gestão da Clínica', path: '/clinic' }, // Página a ser criada
-  { id: 'users', icon: '👥', label: 'Usuários', path: '/users' }, // Página a ser criada
-  { id: 'oauth', icon: '🔐', label: 'Clientes OAuth', path: '/oauth' }, // Página a ser criada
-  { id: 'compliance', icon: '🔒', label: 'LGPD & Compliance', path: '/compliance' }, // Página a ser criada
-  { id: 'reports', icon: '📈', label: 'Relatórios', path: '/reports' } // Página a ser criada
+  { id: "dashboard", icon: "📊", label: "Dashboard", path: "/" },
+  { id: "clinic", icon: "🏥", label: "Gestão da Clínica", path: "/clinic" }, // Página a ser criada
+  { id: "users", icon: "👥", label: "Usuários", path: "/users" }, // Página a ser criada
+  { id: "oauth", icon: "🔐", label: "Clientes OAuth", path: "/oauth" }, // Página a ser criada
+  {
+    id: "compliance",
+    icon: "🔒",
+    label: "LGPD & Compliance",
+    path: "/compliance",
+  }, // Página a ser criada
+  { id: "reports", icon: "📈", label: "Relatórios", path: "/reports" }, // Página a ser criada
 ];
 
 const patientMenu = [
-  { id: 'dashboard', icon: '🏠', label: 'Meu Progresso', path: '/' },
-  { id: 'exercises', icon: '💪', label: 'Meus Exercícios', path: '/exercises' }, // Página a ser criada
-  { id: 'medical-records', icon: '📋', label: 'Meus Registros', path: '/medical-records' }, // Página a ser criada
-  { id: 'consents', icon: '✓', label: 'Meus Consentimentos', path: '/consents' }, // Página a ser criada
-  { id: 'schedule', icon: '📅', label: 'Agenda', path: '/schedule' }, // Página a ser criada
-  { id: 'messages', icon: '💬', label: 'Mensagens', path: '/messages' } // Página a ser criada
+  { id: "dashboard", icon: "🏠", label: "Meu Progresso", path: "/" },
+  //{ id: "exercises", icon: "💪", label: "Meus Exercícios", path: "/exercises" }, // Página a ser criada
+  {
+    id: "medical-records",
+    icon: "📋",
+    label: "Meus Registros",
+    path: "/medical-records",
+  }, // Página a ser criada
+  {
+    id: "consents",
+    icon: "✓",
+    label: "Meus Consentimentos",
+    path: "/consents",
+  }, // Página a ser criada
+  { id: "schedule", icon: "📅", label: "Agenda", path: "/schedule" }, // Página a ser criada
+  { id: "messages", icon: "💬", label: "Mensagens", path: "/messages" }, // Página a ser criada
 ];
 
 // O 'userMenu' é uma computed property que reage à mudança de 'authStore.user'
 const userMenu = computed(() => {
   const role = authStore.user?.role;
   switch (role) {
-    case 'ADMIN':
+    case "ADMIN":
       return adminMenu;
-    case 'PATIENT':
+    case "PATIENT":
       return patientMenu;
-    case 'CLINICIAN':
+    case "CLINICIAN":
     default:
       return clinicianMenu;
   }
