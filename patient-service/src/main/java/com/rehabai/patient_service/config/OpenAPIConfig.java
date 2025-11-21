@@ -60,8 +60,9 @@ public class OpenAPIConfig {
                                 
                                 ## ⚠️ Ambiente
                                 
-                                - **Porta**: 8083
-                                - **Base URL**: http://localhost:8083
+                                - **Porta**: 8087
+                                - **Base URL Direta**: http://localhost:8087
+                                - **Via API Gateway**: http://localhost:8080/patients
                                 - **Banco de Dados**: PostgreSQL
                                 """)
                         .version("1.0.0")
@@ -74,11 +75,11 @@ public class OpenAPIConfig {
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8083")
+                                .url("http://localhost:8087")
                                 .description("Desenvolvimento Local"),
                         new Server()
                                 .url("http://localhost:8080")
-                                .description("API Gateway (Produção)")
+                                .description("API Gateway")
                 ))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
@@ -109,4 +110,3 @@ public class OpenAPIConfig {
                                         """)));
     }
 }
-
