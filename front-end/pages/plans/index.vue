@@ -317,16 +317,18 @@ async function approvePlan(planId: string) {
 
   loadingActions.value[planId] = "approve";
   try {
-    await useApiFetch(`/plans/${planId}/approve`, {
+    await $api(`/plans/${planId}/approve`, {
       method: "POST",
     });
-    alert("Plano aprovado com sucesso!");
+
     if (plans.value) {
       const updatedPlan = plans.value.find((p) => p.id === planId);
       if (updatedPlan) {
         updatedPlan.status = "APPROVED";
       }
     }
+
+    alert("Plano aprovado com sucesso!");
   } catch (error) {
     console.error("Erro ao aprovar plano:", error);
     alert("Erro ao aprovar plano. Tente novamente.");
@@ -340,16 +342,18 @@ async function archivePlan(planId: string) {
 
   loadingActions.value[planId] = "archive";
   try {
-    await useApiFetch(`/plans/${planId}/archive`, {
+    await $api(`/plans/${planId}/archive`, {
       method: "POST",
     });
-    alert("Plano arquivado com sucesso!");
+
     if (plans.value) {
       const updatedPlan = plans.value.find((p) => p.id === planId);
       if (updatedPlan) {
         updatedPlan.status = "ARCHIVED";
       }
     }
+
+    alert("Plano arquivado com sucesso!");
   } catch (error) {
     console.error("Erro ao arquivar plano:", error);
     alert("Erro ao arquivar plano. Tente novamente.");
