@@ -2,6 +2,8 @@ package com.rehabai.plan_service.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -29,6 +31,7 @@ public class PlanAuditLog {
     private UUID changedBy;
 
     @Column(name = "change_diff", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String changeDiff;
 
     @Column(name = "reason", length = 255)
@@ -37,4 +40,3 @@ public class PlanAuditLog {
     @Column(name = "timestamp", nullable = false)
     private OffsetDateTime timestamp = OffsetDateTime.now();
 }
-
