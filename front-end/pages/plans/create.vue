@@ -29,6 +29,54 @@
       @submit.prevent="handleCreatePlan"
       class="space-y-8"
     >
+      <div 
+        v-if="prescriptionFileMetadata" 
+        class="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-md border-2 border-blue-200"
+      >
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <span class="text-4xl">📄</span>
+            <div>
+              <h2 class="text-xl font-semibold text-blue-900">
+                Documento Original
+              </h2>
+              <p class="text-sm text-blue-700">
+                Arquivo usado pela IA para gerar este plano
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              @click="showFileViewer = true"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-2"
+            >
+              <span>👁️</span> Visualizar
+            </button>
+            <button
+              type="button"
+              @click="downloadFile"
+              class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2"
+            >
+              <span>📥</span> Download
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg p-4 border border-blue-200">
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span class="font-semibold text-gray-700">Nome do Arquivo:</span>
+              <p class="text-gray-900">{{ prescriptionFileMetadata.fileName }}</p>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-700">Tipo:</span>
+              <p class="text-gray-900">{{ formatFileType(prescriptionFileMetadata.fileType) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="p-6 bg-white rounded-lg shadow-md border border-gray-200">
         <h2 class="text-xl font-semibold mb-4 border-b pb-2">
           Detalhes do Plano
@@ -307,22 +355,76 @@
         </button>
       </template>
     </UIBaseModal>
+
+    <!-- File Viewer Modal -->
+    <UIBaseModal
+      :model-value="showFileViewer"
+      @close="showFileViewer = false"
+      :title="prescriptionFileMetadata?.fileName || 'Visualizar Documento'"
+    >
+      <div class="w-full" style="height: 75vh;">
+        <div v-if="loadingFile" class="bg-white rounded-lg p-10 text-center h-full flex items-center justify-center">
+          <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="text-gray-600">Carregando arquivo...</p>
+          </div>
+        </div>
+        <div v-else-if="fileViewerError" class="bg-red-50 rounded-lg p-10 text-center h-full flex items-center justify-center">
+          <div class="flex flex-col items-center">
+            <span class="text-6xl mb-4">⚠️</span>
+            <p class="text-red-800 font-semibold mb-2">Erro ao carregar arquivo</p>
+            <p class="text-red-600 text-sm mb-4">{{ fileViewerError }}</p>
+            <button
+              type="button"
+              @click="downloadFile"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Tentar Download
+            </button>
+          </div>
+        </div>
+        <iframe
+          v-else-if="fileUrl"
+          :src="fileUrl"
+          class="w-full h-full rounded-lg border border-gray-300"
+          frameborder="0"
+          title="Visualização do documento"
+        >
+        </iframe>
+      </div>
+      <template #footer>
+        <button
+          type="button"
+          class="btn-secondary"
+          @click="showFileViewer = false"
+        >
+          Fechar
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          @click="downloadFile"
+        >
+          <span>📥</span> Download
+        </button>
+      </template>
+    </UIBaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
-import type {
-  PlanDraftResponse,
-  PrescriptionResponse,
-  PrescriptionListItem,
-} from "~/types/prescription";
+import type { NuxtError } from "#app";
+import { computed, ref, watch } from "vue";
+import type { ExerciseDto } from "~/types/exercise";
 import type {
   CreatePlanRequest,
   PlanDataStructure,
 } from "~/types/plan";
-import type { ExerciseDto } from "~/types/exercise";
-import type { NuxtError } from "#app";
+import type {
+  PlanDraftResponse,
+  PrescriptionListItem,
+  PrescriptionResponse,
+} from "~/types/prescription";
 
 definePageMeta({
   middleware: ["auth-only"],
@@ -343,7 +445,6 @@ const userId = computed(() => {
 
 interface EditablePlanForm {
   userId: string;
-  // Campos do planData
   title: string;
   description: string;
   diagnosis: string;
@@ -365,6 +466,28 @@ const pending = ref(true);
 // Use o tipo de erro correto do Nuxt
 const error = ref<NuxtError | Error | null>(null);
 
+const showFileViewer = ref(false);
+const fileUrl = ref<string | null>(null);
+const loadingFile = ref(false);
+const fileViewerError = ref<string | null>(null);
+const prescriptionFileMetadata = ref<{
+  fileId: string;
+  fileName: string;
+  fileType: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+} | null>(null);
+
+const formatFileType = (fileType: string): string => {
+  const types: Record<string, string> = {
+    MEDICAL_REPORT: "Laudo Médico",
+    PRESCRIPTION: "Prescrição",
+    IMAGE: "Imagem",
+    OTHER: "Outro",
+  };
+  return types[fileType] || fileType;
+};
+
 // Helper para formatar data: '2025-11-18T09:00:00Z' ou undefined -> '2025-11-18'
 const formatDateForInput = (dateString?: string) => {
   if (!dateString) return new Date().toISOString().split("T")[0];
@@ -375,9 +498,51 @@ const formatDateForInput = (dateString?: string) => {
   }
 };
 
-// --- LÓGICA DE CARREGAMENTO ---
+const downloadFile = async () => {
+  if (!prescriptionFileMetadata.value) return;
+  
+  try {
+    const blob = await $api(`/files/${prescriptionFileMetadata.value.fileId}/download`, {
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = prescriptionFileMetadata.value.fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Download error:', error);
+    alert('Erro ao baixar arquivo');
+  }
+};
+
+watch(showFileViewer, async (show) => {
+  if (show && prescriptionFileMetadata.value) {
+    loadingFile.value = true;
+    fileViewerError.value = null;
+    try {
+      const response = await $api(`/files/${prescriptionFileMetadata.value.fileId}/download`, {
+        responseType: 'arrayBuffer'
+      });
+      
+      const blob = new Blob([response as ArrayBuffer], { type: 'application/pdf' });
+      fileUrl.value = window.URL.createObjectURL(blob);
+    } catch (error: any) {
+      console.error('File load error:', error);
+      fileViewerError.value = error.message || 'Não foi possível carregar o arquivo';
+    } finally {
+      loadingFile.value = false;
+    }
+  } else if (!show && fileUrl.value) {
+    window.URL.revokeObjectURL(fileUrl.value);
+    fileUrl.value = null;
+  }
+});
+
 if (!userId.value) {
-  // Cenário de Erro: Sem userId
   error.value = createError({ 
     statusCode: 400, 
     statusMessage: "Nenhum ID de usuário fornecido para criar o plano." 
@@ -385,7 +550,6 @@ if (!userId.value) {
   pending.value = false;
 
 } else if (prescriptionId.value) {
-  // Cenário 1: Carregar de um Rascunho existente
   const {
     data: prescriptionData,
     pending: prescriptionPending,
@@ -401,6 +565,16 @@ if (!userId.value) {
   error.value = prescriptionError.value|| null;
 
   if (prescriptionData.value && prescriptionData.value.originalText) {
+    if (prescriptionData.value.fileMetadata) {
+      prescriptionFileMetadata.value = {
+        fileId: prescriptionData.value.fileMetadata.fileId,
+        fileName: prescriptionData.value.fileMetadata.fileName,
+        fileType: prescriptionData.value.fileMetadata.fileType,
+        viewUrl: prescriptionData.value.fileMetadata.viewUrl,
+        downloadUrl: prescriptionData.value.fileMetadata.downloadUrl,
+      };
+    }
+
     try {
       const parsedDraft = JSON.parse(
         prescriptionData.value.originalText
