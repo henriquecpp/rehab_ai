@@ -7,7 +7,12 @@ const authStore = useAuthStore();
 if (authStore.isClinician) {
   await navigateTo('/patients');
 } else if (authStore.isPatient) {
-  await navigateTo('/patients');
+  if (authStore.user?.id) {
+    await navigateTo(`/patients/${authStore.user.id}`);
+  } else {
+    console.error("Não foi possível obter o ID do paciente para redirecionamento.");
+    await authStore.logout();
+  }
 } else {
   await navigateTo('/login');
 }
