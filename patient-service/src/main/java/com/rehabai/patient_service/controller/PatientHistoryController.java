@@ -25,7 +25,6 @@ public class PatientHistoryController {
     private final PatientHistoryService service;
     private final SecurityHelper securityHelper;
 
-    // Notes
     @Operation(summary = "Adicionar nota clínica", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Nota adicionada")
     @PostMapping("/history/notes")
@@ -45,7 +44,6 @@ public class PatientHistoryController {
         return ResponseEntity.ok(service.listNotes(userId));
     }
 
-    // Conditions
     @Operation(summary = "Adicionar condição médica", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Condição adicionada")
     @PostMapping("/conditions")
@@ -86,7 +84,6 @@ public class PatientHistoryController {
         return ResponseEntity.noContent().build();
     }
 
-    // Allergies
     @Operation(summary = "Adicionar alergia", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Alergia adicionada")
     @PostMapping("/allergies")
@@ -106,7 +103,17 @@ public class PatientHistoryController {
         return ResponseEntity.ok(service.listAllergies(userId));
     }
 
-    // Medications
+    @Operation(summary = "Deletar alergia", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponse(responseCode = "204", description = "✅ Alergia deletada")
+    @DeleteMapping("/allergies/{allergyId}")
+    public ResponseEntity<Void> deleteAllergy(
+            @Parameter(description = "UUID do paciente") @PathVariable UUID userId,
+            @Parameter(description = "UUID da alergia") @PathVariable UUID allergyId) {
+        securityHelper.validateResourceAccess(userId);
+        service.deleteAllergy(userId, allergyId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Adicionar medicação", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Medicação adicionada")
     @PostMapping("/medications")
@@ -126,7 +133,17 @@ public class PatientHistoryController {
         return ResponseEntity.ok(service.listMedications(userId));
     }
 
-    // Vitals
+    @Operation(summary = "Deletar medicação", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponse(responseCode = "204", description = "✅ Medicação deletada")
+    @DeleteMapping("/medications/{medicationId}")
+    public ResponseEntity<Void> deleteMedication(
+            @Parameter(description = "UUID do paciente") @PathVariable UUID userId,
+            @Parameter(description = "UUID da medicação") @PathVariable UUID medicationId) {
+        securityHelper.validateResourceAccess(userId);
+        service.deleteMedication(userId, medicationId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Adicionar sinal vital", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Sinal vital adicionado")
     @PostMapping("/vitals")
