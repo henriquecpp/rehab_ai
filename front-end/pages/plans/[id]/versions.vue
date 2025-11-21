@@ -23,9 +23,11 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h2 class="text-xl font-bold text-gray-900">
-              {{ currentPlan.title }}
+              {{ getPlanTitle(currentPlan) }}
             </h2>
-            <p class="text-gray-600">Paciente: {{ currentPlan.patientName }}</p>
+            <p class="text-gray-600">
+              ID do Paciente: {{ currentPlan.userId }}
+            </p>
           </div>
           <div class="flex items-center gap-4">
             <span
@@ -42,9 +44,9 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <div class="p-4 bg-gray-50 rounded-lg">
-            <p class="text-sm text-gray-600 mb-1">Criado por</p>
+            <p class="text-sm text-gray-600 mb-1">Terapeuta</p>
             <p class="font-semibold text-gray-900">
-              {{ currentPlan.createdBy }}
+              {{ currentPlan.therapistId || "N/A" }}
             </p>
           </div>
           <div class="p-4 bg-gray-50 rounded-lg">
@@ -122,6 +124,18 @@
         </div>
 
         <div
+          v-else-if="!currentPlan?.prescriptionId"
+          class="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200"
+        >
+          <span class="text-4xl mb-3 block">📝</span>
+          <p class="text-gray-700 font-medium mb-2">Plano Criado Manualmente</p>
+          <p class="text-gray-600 text-sm">
+            Este plano foi criado manualmente e não possui versionamento baseado
+            em prescrição.
+          </p>
+        </div>
+
+        <div
           v-else-if="versions.length === 0"
           class="text-center py-8 text-gray-500"
         >
@@ -160,9 +174,9 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div class="text-sm">
-                    <span class="text-gray-600">Criado por:</span>
+                    <span class="text-gray-600">Terapeuta:</span>
                     <span class="text-gray-900 font-medium ml-2">{{
-                      version.createdBy
+                      version.therapistId || "N/A"
                     }}</span>
                   </div>
                   <div class="text-sm">
@@ -173,19 +187,18 @@
                   </div>
                 </div>
 
-                <p
-                  v-if="version.description"
-                  class="text-sm text-gray-600 mb-3"
-                >
-                  {{ version.description }}
+                <p class="text-sm text-gray-600 mb-3">
+                  {{ getPlanDescription(version) || "Sem descrição" }}
                 </p>
 
                 <div
-                  v-if="version.changes"
+                  v-if="version.updateReason"
                   class="text-sm bg-gray-50 rounded p-3 mb-3"
                 >
-                  <p class="font-medium text-gray-700 mb-1">Mudanças:</p>
-                  <p class="text-gray-600">{{ version.changes }}</p>
+                  <p class="font-medium text-gray-700 mb-1">
+                    Motivo da Atualização:
+                  </p>
+                  <p class="text-gray-600">{{ version.updateReason }}</p>
                 </div>
               </div>
 
@@ -232,7 +245,7 @@
             <div class="flex justify-between items-center mb-4">
               <h2 class="text-2xl font-bold text-gray-900">
                 Versão {{ selectedVersion.version }} -
-                {{ selectedVersion.title }}
+                {{ getPlanTitle(selectedVersion) }}
               </h2>
               <button
                 @click="showVersionModal = false"
@@ -248,7 +261,7 @@
                   <strong>Descrição:</strong>
                 </p>
                 <p class="text-gray-900">
-                  {{ selectedVersion.description || "Sem descrição" }}
+                  {{ getPlanDescription(selectedVersion) || "Sem descrição" }}
                 </p>
               </div>
 
@@ -258,11 +271,22 @@
                 </p>
                 <ul class="list-disc list-inside space-y-1">
                   <li
-                    v-for="exercise in selectedVersion.exercises"
-                    :key="exercise"
+                    v-for="(exercise, idx) in parsePlanData(
+                      selectedVersion.planData
+                    ).exercises"
+                    :key="idx"
                     class="text-gray-900"
                   >
-                    {{ exercise }}
+                    {{ exercise.name }}
+                    <span v-if="exercise.sets" class="text-sm text-gray-600">
+                      - {{ exercise.sets }} séries
+                    </span>
+                    <span
+                      v-if="exercise.repetitions"
+                      class="text-sm text-gray-600"
+                    >
+                      x {{ exercise.repetitions }} repetições
+                    </span>
                   </li>
                 </ul>
               </div>
@@ -366,16 +390,44 @@ definePageMeta({
 
 interface Plan {
   id: string;
-  title: string;
-  description: string;
-  patientName: string;
-  createdBy: string;
-  status: "DRAFT" | "APPROVED" | "ARCHIVED";
+  userId: string;
+  prescriptionId?: string;
+  therapistId?: string;
+  origin: string;
+  confidenceScore?: number;
   version: number;
-  createdAt: string;
-  updatedAt: string;
-  exercises: string[];
-  changes?: string;
+  status: "DRAFT" | "APPROVED" | "ARCHIVED";
+  planData: string; // JSON string containing title, description, diagnosis, exercises, etc.
+  priority: string;
+  painLevelStart: number;
+  painLevelExpectedEnd: number;
+  startDate?: number;
+  endDate?: number;
+  tags: string[];
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+  publishedAt?: number;
+  publishedBy?: string;
+  reviewedAt?: number;
+  reviewedBy?: string;
+  updateReason?: string;
+}
+
+interface PlanDataStructure {
+  title?: string;
+  description?: string;
+  diagnosis?: string;
+  exercises?: Array<{
+    name: string;
+    sets?: number;
+    repetitions?: number;
+    duration?: number;
+    frequency?: string;
+    description?: string;
+  }>;
+  goals?: string[];
+  notes?: string;
 }
 
 interface AuditLog {
@@ -387,6 +439,25 @@ interface AuditLog {
   timestamp: string;
   details?: string;
 }
+
+const parsePlanData = (planDataString: string): PlanDataStructure => {
+  try {
+    return JSON.parse(planDataString);
+  } catch (e) {
+    console.error("Error parsing planData:", e);
+    return {};
+  }
+};
+
+const getPlanTitle = (plan: Plan): string => {
+  const parsed = parsePlanData(plan.planData);
+  return parsed.title || "Plano sem título";
+};
+
+const getPlanDescription = (plan: Plan): string => {
+  const parsed = parsePlanData(plan.planData);
+  return parsed.description || "";
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -404,18 +475,28 @@ const auditLogs = ref<AuditLog[]>([]);
 const fetchVersions = async () => {
   loading.value = true;
   try {
-    const [planData, versionsData] = await Promise.all([
-      useApiFetch<Plan>(`/plans/${route.params.id}`, { method: "GET" }),
-      useApiFetch<Plan[]>(`/plans/prescription/${route.params.id}/versions`, {
-        method: "GET",
-      }),
-    ]);
+    const planData = await $api<Plan>(`/plans/${route.params.id}`, {
+      method: "GET",
+    });
 
-    if (planData.data.value) {
-      currentPlan.value = planData.data.value;
-    }
-    if (versionsData.data.value) {
-      versions.value = versionsData.data.value;
+    if (planData) {
+      currentPlan.value = planData;
+
+      if (planData.prescriptionId) {
+        const versionsData = await $api<Plan[]>(
+          `/plans/prescription/${planData.prescriptionId}/versions`,
+          { method: "GET" }
+        );
+
+        if (versionsData) {
+          versions.value = versionsData;
+        }
+      } else {
+        versions.value = [planData];
+        console.warn(
+          "Este plano não possui prescriptionId, então não há versões associadas."
+        );
+      }
     }
   } catch (error) {
     console.error("Erro ao carregar versões:", error);
@@ -434,7 +515,7 @@ const approvePlan = async () => {
 
   actionLoading.value = true;
   try {
-    await useApiFetch(`/plans/${route.params.id}/approve`, {
+    await $api(`/plans/${route.params.id}/approve`, {
       method: "POST",
     });
     alert("Plano aprovado com sucesso!");
@@ -453,17 +534,21 @@ const createNewVersion = async () => {
 
   actionLoading.value = true;
   try {
-    const { data } = await useApiFetch<Plan>(
-      `/plans/${route.params.id}/new-version`,
-      {
-        method: "POST",
-        body: { description },
-      }
-    );
+    const response = await $api<Plan>(`/plans/${route.params.id}/new-version`, {
+      method: "POST",
+      body: { description },
+    });
 
-    if (data.value) {
-      alert("Nova versão criada com sucesso!");
-      router.push(`/plans/${data.value.id}`);
+    if (response) {
+      if (
+        confirm(
+          "Nova versão criada com sucesso! Deseja editar a nova versão agora?"
+        )
+      ) {
+        await router.push(`/plans/${response.id}/edit`);
+      } else {
+        await fetchVersions();
+      }
     }
   } catch (error) {
     console.error("Erro ao criar nova versão:", error);
@@ -482,7 +567,7 @@ const archivePlan = async () => {
 
   actionLoading.value = true;
   try {
-    await useApiFetch(`/plans/${route.params.id}/archive`, {
+    await $api(`/plans/${route.params.id}/archive`, {
       method: "POST",
     });
     alert("Plano arquivado com sucesso!");
@@ -567,8 +652,12 @@ const getStatusLabel = (status: string): string => {
   return labels[status as keyof typeof labels] || status;
 };
 
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
+const formatDate = (timestamp: string | number): string => {
+  const date =
+    typeof timestamp === "number"
+      ? new Date(timestamp > 10000000000 ? timestamp : timestamp * 1000)
+      : new Date(timestamp);
+
   return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
