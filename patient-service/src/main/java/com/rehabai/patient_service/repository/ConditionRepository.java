@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public interface ConditionRepository extends JpaRepository<Condition, UUID> {
     List<Condition> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    List<Condition> findByUserIdOrderByOnsetDateDesc(UUID userId);
 }
 

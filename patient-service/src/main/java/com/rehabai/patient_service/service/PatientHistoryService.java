@@ -110,6 +110,13 @@ public class PatientHistoryService {
                 .toList();
     }
 
+    @Transactional
+    public void deleteAllergy(UUID userId, UUID allergyId) {
+        Allergy a = allergyRepo.findById(allergyId).orElseThrow(() -> new IllegalArgumentException("allergy_not_found"));
+        if (!a.getUserId().equals(userId)) throw new IllegalArgumentException("allergy_not_found");
+        allergyRepo.deleteById(allergyId);
+    }
+
     // Medications
     @Transactional
     public PatientDtos.MedicationResponse addMedication(UUID userId, PatientDtos.MedicationCreateRequest req) {
@@ -131,6 +138,13 @@ public class PatientHistoryService {
         return medicationRepo.findByUserId(userId)
                 .stream().map(m -> new PatientDtos.MedicationResponse(m.getId(), m.getUserId(), m.getDrugName(), m.getDose(), m.getRoute(), m.getFrequency(), m.getStartDate(), m.getEndDate()))
                 .toList();
+    }
+
+    @Transactional
+    public void deleteMedication(UUID userId, UUID medicationId) {
+        Medication m = medicationRepo.findById(medicationId).orElseThrow(() -> new IllegalArgumentException("medication_not_found"));
+        if (!m.getUserId().equals(userId)) throw new IllegalArgumentException("medication_not_found");
+        medicationRepo.deleteById(medicationId);
     }
 
     // Vitals
