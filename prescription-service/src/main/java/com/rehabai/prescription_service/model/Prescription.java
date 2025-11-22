@@ -23,6 +23,12 @@ public class Prescription {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "file_id", nullable = false)
+    private UUID fileId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
     @Column(name = "normalization_id", nullable = false)
     private UUID normalizationId;
 
