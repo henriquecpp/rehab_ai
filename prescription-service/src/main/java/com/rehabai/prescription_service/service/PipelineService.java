@@ -1,5 +1,8 @@
 package com.rehabai.prescription_service.service;
 
+import com.rehabai.prescription_service.config.RabbitConfig;
+import com.rehabai.prescription_service.events.PatientDataRequestEvent;
+import com.rehabai.prescription_service.events.PatientDataResponseEvent;
 import com.rehabai.prescription_service.llm.LlmService;
 import com.rehabai.prescription_service.model.*;
 import com.rehabai.prescription_service.repository.*;
@@ -10,10 +13,13 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class PipelineService {
@@ -28,6 +34,8 @@ public class PipelineService {
     private final NormalizationRepository normalizationRepo;
     private final PrescriptionRepository prescriptionRepo;
     private final AiTraceRepository aiTraceRepo;
+    private final PatientDataService patientDataService;
+    private final RabbitTemplate rabbitTemplate;
 
     private final MeterRegistry meterRegistry;
     private final ObservationRegistry observationRegistry;
@@ -41,6 +49,8 @@ public class PipelineService {
                            NormalizationRepository normalizationRepo,
                            PrescriptionRepository prescriptionRepo,
                            AiTraceRepository aiTraceRepo,
+                           PatientDataService patientDataService,
+                           RabbitTemplate rabbitTemplate,
                            MeterRegistry meterRegistry,
                            ObservationRegistry observationRegistry,
                            Tracer tracer) {
@@ -52,6 +62,8 @@ public class PipelineService {
         this.normalizationRepo = normalizationRepo;
         this.prescriptionRepo = prescriptionRepo;
         this.aiTraceRepo = aiTraceRepo;
+        this.patientDataService = patientDataService;
+        this.rabbitTemplate = rabbitTemplate;
         this.meterRegistry = meterRegistry;
         this.observationRegistry = observationRegistry;
         this.tracer = tracer;
@@ -82,7 +94,6 @@ public class PipelineService {
         Observation overallObs = Observation.start("pipeline.run", observationRegistry)
                 .lowCardinalityKeyValue("service", "prescription-service");
         try (Observation.Scope overallScope = overallObs.openScope()) {
-            // Extraction Stage
             run.setCurrentStage(WorkflowStage.EXTRACTION);
             runRepo.save(run);
             Observation extractObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
@@ -112,7 +123,6 @@ public class PipelineService {
                 extractTimer.stop(Timer.builder("pipeline.stage.latency").tag("stage", "extraction").register(meterRegistry));
             }
 
-            // Normalization Stage
             run.setCurrentStage(WorkflowStage.NORMALIZATION);
             runRepo.save(run);
             Observation normObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
@@ -150,44 +160,61 @@ public class PipelineService {
             Observation prescObs = Observation.createNotStarted("pipeline.stage", observationRegistry)
                     .lowCardinalityKeyValue("stage", "prescription");
             Timer.Sample prescTimer = Timer.start(meterRegistry);
+            Prescription presc = null;
+            long startPresc = System.currentTimeMillis();
 
-            long startLlm = System.currentTimeMillis();
+            PatientDataResponseEvent patientData = null;
+            try {
+                UUID requestId = UUID.randomUUID();
+                CompletableFuture<PatientDataResponseEvent> patientDataFuture =
+                    patientDataService.createPendingRequest(requestId);
+
+                PatientDataRequestEvent request = new PatientDataRequestEvent(
+                    requestId, userId, run.getTraceId()
+                );
+
+                log.info("Requesting patient data: requestId={}, userId={}", requestId, userId);
+                rabbitTemplate.convertAndSend(
+                    RabbitConfig.EXCHANGE,
+                    "patient.data.request",
+                    request
+                );
+
+                patientData = patientDataFuture.get(8, TimeUnit.SECONDS);
+                log.info("Received patient data: conditions={}, allergies={}, medications={}",
+                    patientData.medicalData().conditions().size(),
+                    patientData.medicalData().allergies().size(),
+                    patientData.medicalData().medications().size());
+            } catch (Exception ex) {
+                log.warn("Failed to get patient data, proceeding without it: {}", ex.getMessage());
+            }
+
             try (Observation.Scope s = prescObs.start().openScope()) {
-                var llm = llmService.generate(norm.getNormalizedTerms());
-
-                log.info("LLM Response - Prescription Text Length: {}",
-                         llm.prescriptionText() != null ? llm.prescriptionText().length() : 0);
-                log.info("LLM Response - Prescription Text Preview: {}",
-                         truncate(llm.prescriptionText(), 200));
-                log.info("LLM Response - Parameters JSON Length: {}",
-                         llm.parametersJson() != null ? llm.parametersJson().length() : 0);
-                log.info("LLM Response - Model Used: {}", llm.modelUsed());
-                log.info("LLM Response - Guardrail Status: {}", llm.guardrailStatus());
-
-                Prescription pr = new Prescription();
-                pr.setNormalizationId(norm.getId());
-                pr.setPrescriptionText(llm.prescriptionText());
-                pr.setParametersJson(llm.parametersJson());
-                pr.setPromptVersion("v1");
-                pr.setModelUsed(llm.modelUsed());
-                pr.setGuardrailStatus(llm.guardrailStatus());
-                prescriptionRepo.save(pr);
-
-                log.info("Prescription saved with ID: {}", pr.getId());
-
-                boolean blocked = llm.guardrailStatus() == GuardrailStatus.BLOCKED;
-                int latencyLlm = (int) (System.currentTimeMillis() - startLlm);
-                saveAiTrace(run.getTraceId(), "prescription-llm",
-                        truncate(norm.getNormalizedTerms(), 500),
-                        truncate(llm.prescriptionText(), 500),
-                        latencyLlm, blocked);
-
+                var llmRes = llmService.generatePrescription(
+                    norm.getNormalizedTerms(),
+                    patientData,
+                    run.getTraceId()
+                );
+                presc = new Prescription();
+                presc.setFileId(fileId);
+                presc.setUserId(userId);
+                presc.setNormalizationId(norm.getId());
+                presc.setPrescriptionText(llmRes.rawText());
+                presc.setParametersJson(llmRes.structuredJson());
+                presc.setModelUsed(llmRes.modelId());
+                presc.setGuardrailStatus(llmRes.guardrailStatus());
+                presc = prescriptionRepo.save(presc);
                 meterRegistry.counter("pipeline.stage.success", "stage", "prescription").increment();
             } catch (Exception ex) {
                 prescObs.error(ex);
                 meterRegistry.counter("pipeline.stage.failure", "stage", "prescription").increment();
                 throw ex;
             } finally {
+                int latencyPresc = (int) (System.currentTimeMillis() - startPresc);
+                saveAiTrace(run.getTraceId(), "prescription-generator",
+                        truncate(norm.getNormalizedTerms(), 500),
+                        truncate(presc != null ? presc.getParametersJson() : null, 500),
+                        latencyPresc, true);
                 prescObs.stop();
                 prescTimer.stop(Timer.builder("pipeline.stage.latency").tag("stage", "prescription").register(meterRegistry));
             }
@@ -195,7 +222,7 @@ public class PipelineService {
             run.setCurrentStage(WorkflowStage.DONE);
             run.setStatus(WorkflowStatus.COMPLETED);
             runRepo.save(run);
-            meterRegistry.counter("pipeline.run.completed").increment();
+            overallObs.lowCardinalityKeyValue("status", "success");
         } catch (Exception e) {
             log.error("Pipeline failed for file {}: {}", fileId, e.getMessage(), e);
             run.setCurrentStage(WorkflowStage.ERROR);
