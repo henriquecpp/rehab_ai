@@ -1,6 +1,8 @@
 package com.rehabai.prescription_service.controller;
 
 import com.rehabai.prescription_service.dto.PlanDraftResponse;
+import com.rehabai.prescription_service.dto.PrescriptionResponse;
+import com.rehabai.prescription_service.integration.FileServiceClient;
 import com.rehabai.prescription_service.security.SecurityHelper;
 import com.rehabai.prescription_service.model.*;
 import com.rehabai.prescription_service.repository.*;
@@ -32,6 +34,7 @@ public class WorkflowController {
     private final AiTraceRepository aiTraceRepo;
     private final PlanDraftService planDraftService;
     private final SecurityHelper securityHelper;
+    private final FileServiceClient fileServiceClient;
 
     @Operation(summary = "Buscar workflow mais recente", description = "🔒 CLINICIAN - Último workflow de um arquivo", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Workflow encontrado")
@@ -76,6 +79,51 @@ public class WorkflowController {
     }
 
     @Operation(summary = "Buscar prescription por ID", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponse(responseCode = "200", description = "✅ Prescription encontrada")
+    @GetMapping("/{id}")
+    public ResponseEntity<PrescriptionResponse> getPrescriptionById(
+            @Parameter(description = "UUID da prescription") @PathVariable UUID id,
+            @RequestHeader(value = "Authorization", required = false) String authToken,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String userRoles,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+        securityHelper.requireClinician();
+        return prescriptionRepo.findById(id)
+                .map(prescription -> {
+                    PrescriptionResponse response = new PrescriptionResponse();
+                    response.setId(prescription.getId());
+                    response.setFileId(prescription.getFileId());
+                    response.setUserId(prescription.getUserId());
+                    response.setNormalizationId(prescription.getNormalizationId());
+                    response.setOriginalText(prescription.getPrescriptionText());
+                    response.setJsonData(prescription.getParametersJson());
+                    response.setCreatedAt(prescription.getCreatedAt());
+
+                    if (prescription.getFileId() != null) {
+                        try {
+                            FileServiceClient.FileMetadataDTO fileMetadata = fileServiceClient.getFileMetadata(
+                                    prescription.getFileId(), authToken, userId, userRoles, userEmail);
+
+                            if (fileMetadata != null) {
+                                PrescriptionResponse.FileMetadata fileMeta = new PrescriptionResponse.FileMetadata();
+                                fileMeta.setFileId(fileMetadata.getId());
+                                fileMeta.setFileName(fileMetadata.getOriginalName());
+                                fileMeta.setFileType(fileMetadata.getFileType());
+                                fileMeta.setViewUrl("/files/" + fileMetadata.getId() + "/view");
+                                fileMeta.setDownloadUrl("/files/" + fileMetadata.getId() + "/download");
+                                response.setFileMetadata(fileMeta);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Erro ao buscar metadados do arquivo: " + e.getMessage());
+                        }
+                    }
+
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Buscar prescription por ID (gerada)", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "200", description = "✅ Prescription encontrada")
     @GetMapping("/generated/{id}")
     public ResponseEntity<?> getPrescription(@Parameter(description = "UUID da prescription") @PathVariable UUID id) {
@@ -167,7 +215,6 @@ public class WorkflowController {
             @Parameter(description = "UUID do paciente") @RequestParam UUID userId) {
         securityHelper.requireClinician();
 
-        // Buscar o workflow mais recente para o arquivo
         WorkflowRun workflow = runRepo.findTopByFileIdOrderByCreatedAtDesc(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("No workflow found for file: " + fileId));
 
@@ -175,19 +222,15 @@ public class WorkflowController {
             throw new IllegalStateException("Workflow not completed yet. Current status: " + workflow.getStatus());
         }
 
-        // Buscar a extração
         Extraction extraction = extractionRepo.findTopByFileIdOrderByCreatedAtDesc(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("No extraction found for file: " + fileId));
 
-        // Buscar a normalização
         Normalization normalization = normalizationRepo.findTopByExtractionIdOrderByCreatedAtDesc(extraction.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No normalization found for extraction: " + extraction.getId()));
 
-        // Buscar a prescrição
         Prescription prescription = prescriptionRepo.findTopByNormalizationIdOrderByCreatedAtDesc(normalization.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No prescription found for normalization: " + normalization.getId()));
 
-        // Gerar o draft
         PlanDraftResponse draft = planDraftService.generateDraft(prescription.getId(), userId);
         return ResponseEntity.ok(draft);
     }
