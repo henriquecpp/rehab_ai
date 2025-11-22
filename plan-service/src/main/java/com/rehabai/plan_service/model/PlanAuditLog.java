@@ -30,11 +30,11 @@ public class PlanAuditLog {
     @Column(name = "changed_by")
     private UUID changedBy;
 
-    @Column(name = "change_diff", columnDefinition = "jsonb")
+    @Column(name = "change_diff", columnDefinition = "jsonb", nullable = true)
     @JdbcTypeCode(SqlTypes.JSON)
     private String changeDiff;
 
-    @Column(name = "reason", length = 255)
+    @Column(name = "reason", length = 500)
     private String reason;
 
     @Column(name = "timestamp", nullable = false)
