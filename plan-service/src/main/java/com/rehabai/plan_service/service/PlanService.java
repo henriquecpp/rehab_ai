@@ -7,6 +7,7 @@ import com.rehabai.plan_service.dto.CreatePlanRequest;
 import com.rehabai.plan_service.dto.PlanResponse;
 import com.rehabai.plan_service.dto.UpdatePlanRequest;
 import com.rehabai.plan_service.dto.SetActiveVersionResponse;
+import com.rehabai.plan_service.dto.PlanAuditLogResponse;
 import com.rehabai.plan_service.events.PlanApprovedEvent;
 import com.rehabai.plan_service.integration.UserClient;
 import com.rehabai.plan_service.model.Plan;
@@ -43,6 +44,7 @@ public class PlanService {
     private final UserClient userClient;
     private final com.rehabai.plan_service.integration.PatientClient patientClient;
     private final RabbitTemplate rabbitTemplate;
+    private final com.rehabai.plan_service.security.SecurityHelper securityHelper;
 
     public PlanService(PlanRepository planRepo,
                        PlanAuditLogRepository auditRepo,
@@ -50,7 +52,8 @@ public class PlanService {
                        ObjectMapper objectMapper,
                        UserClient userClient,
                        com.rehabai.plan_service.integration.PatientClient patientClient,
-                       RabbitTemplate rabbitTemplate) {
+                       RabbitTemplate rabbitTemplate,
+                       com.rehabai.plan_service.security.SecurityHelper securityHelper) {
         this.planRepo = planRepo;
         this.auditRepo = auditRepo;
         this.objectMapper = objectMapper;
@@ -60,6 +63,7 @@ public class PlanService {
         this.userClient = userClient;
         this.patientClient = patientClient;
         this.rabbitTemplate = rabbitTemplate;
+        this.securityHelper = securityHelper;
     }
 
     @Transactional
@@ -93,7 +97,7 @@ public class PlanService {
         plan = planRepo.save(plan);
         planCreated.increment();
 
-        logAudit(plan.getId(), null, "Plan created", "{}");
+        logAudit(plan.getId(), therapistId, "Plan created", null);
 
         log.info("Plan created: id={}, userId={}, version={}",
             plan.getId(), plan.getUserId(), plan.getVersion());
@@ -172,6 +176,11 @@ public class PlanService {
 
     @Transactional(readOnly = true)
     public List<PlanResponse> getPlansByUser(UUID userId) {
+        if (securityHelper.isPatient()) {
+            return planRepo.findByUserIdAndActiveTrueOrderByCreatedAtDesc(userId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        }
         return planRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
@@ -179,6 +188,11 @@ public class PlanService {
 
     @Transactional(readOnly = true)
     public List<PlanResponse> getPlansByUserAndStatus(UUID userId, PlanStatus status) {
+        if (securityHelper.isPatient()) {
+            return planRepo.findByUserIdAndStatusAndActiveTrueOrderByCreatedAtDesc(userId, status).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        }
         return planRepo.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status).stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
@@ -199,8 +213,10 @@ public class PlanService {
     }
 
     @Transactional(readOnly = true)
-    public List<PlanAuditLog> getAuditHistory(UUID planId) {
-        return auditRepo.findByPlanIdOrderByTimestampDesc(planId);
+    public List<PlanAuditLogResponse> getAuditHistory(UUID planId) {
+        return auditRepo.findByPlanIdOrderByTimestampDesc(planId).stream()
+            .map(this::toAuditResponse)
+            .collect(Collectors.toList());
     }
 
     @Transactional
@@ -210,11 +226,13 @@ public class PlanService {
         enforceTransition(plan.getStatus(), PlanStatus.APPROVED);
         plan.setStatus(PlanStatus.APPROVED);
         plan.setUpdateReason("Plan approved");
+        planRepo.deactivateOtherVersions(plan.getPrescriptionId(), planId);
+        plan.setActive(true);
         plan = planRepo.save(plan);
         planUpdated.increment();
         planApproved.increment();
 
-        logAudit(plan.getId(), approvedBy, "Plan approved", "{}");
+        logAudit(plan.getId(), approvedBy, "Plan approved", null);
 
         publishPlanApprovedEvent(plan, approvedBy);
 
@@ -251,7 +269,7 @@ public class PlanService {
         clone.setVersion(nextVersion);
         clone.setStatus(PlanStatus.DRAFT);
         clone = planRepo.save(clone);
-        logAudit(clone.getId(), changedBy, reason != null ? reason : "New version created", "{}");
+        logAudit(clone.getId(), changedBy, reason != null ? reason : "New version created", null);
         return toResponse(clone);
     }
 
@@ -283,7 +301,7 @@ public class PlanService {
         clone.setVersion(nextVersion);
         clone.setStatus(PlanStatus.DRAFT);
         clone = planRepo.save(clone);
-        logAudit(clone.getId(), changedBy, reason != null ? reason : ("Rollback to version " + toVersion), "{}");
+        logAudit(clone.getId(), changedBy, reason != null ? reason : ("Rollback to version " + toVersion), null);
         return toResponse(clone);
     }
 
@@ -295,7 +313,7 @@ public class PlanService {
         plan.setUpdateReason(reason);
         plan = planRepo.save(plan);
         planUpdated.increment();
-        logAudit(plan.getId(), changedBy, reason, "{}");
+        logAudit(plan.getId(), changedBy, reason, null);
         if (newStatus == PlanStatus.APPROVED) {
             planApproved.increment();
         }
@@ -313,22 +331,73 @@ public class PlanService {
         PlanAuditLog logEntry = new PlanAuditLog();
         logEntry.setPlanId(planId);
         logEntry.setChangedBy(changedBy);
-        logEntry.setReason(reason);
-        logEntry.setChangeDiff(diff);
+        logEntry.setReason(reason != null && !reason.isBlank() ? reason : "No reason provided");
+
+        if (diff != null && !diff.equals("{}") && !diff.isBlank()) {
+            logEntry.setChangeDiff(diff);
+        } else {
+            logEntry.setChangeDiff(null);
+        }
+
         auditRepo.save(logEntry);
     }
 
     private String calculateDiff(JsonNode oldData, JsonNode newData) {
         try {
-            String oldJson = planDataToString(oldData);
-            String newJson = planDataToString(newData);
-            return objectMapper.writeValueAsString(List.of(
-                objectMapper.readTree(oldJson),
-                objectMapper.readTree(newJson)
-            ));
+            if (oldData == null && newData == null) {
+                return null;
+            }
+            if (oldData != null && oldData.equals(newData)) {
+                return null;
+            }
+
+            var diffObject = objectMapper.createObjectNode();
+
+            if (oldData != null) {
+                diffObject.set("before", oldData);
+            }
+            if (newData != null) {
+                diffObject.set("after", newData);
+            }
+
+            if (oldData != null && newData != null) {
+                var changes = objectMapper.createArrayNode();
+
+                oldData.fieldNames().forEachRemaining(fieldName -> {
+                    JsonNode oldValue = oldData.get(fieldName);
+                    JsonNode newValue = newData.get(fieldName);
+
+                    if (newValue == null) {
+                        var change = objectMapper.createObjectNode();
+                        change.put("field", fieldName);
+                        change.put("action", "removed");
+                        changes.add(change);
+                    } else if (!oldValue.equals(newValue)) {
+                        var change = objectMapper.createObjectNode();
+                        change.put("field", fieldName);
+                        change.put("action", "modified");
+                        changes.add(change);
+                    }
+                });
+
+                newData.fieldNames().forEachRemaining(fieldName -> {
+                    if (!oldData.has(fieldName)) {
+                        var change = objectMapper.createObjectNode();
+                        change.put("field", fieldName);
+                        change.put("action", "added");
+                        changes.add(change);
+                    }
+                });
+
+                if (!changes.isEmpty()) {
+                    diffObject.set("changes", changes);
+                }
+            }
+
+            return objectMapper.writeValueAsString(diffObject);
         } catch (Exception e) {
             log.warn("Failed to calculate diff: {}", e.getMessage());
-            return "{\"error\": \"Could not calculate diff\"}";
+            return null;
         }
     }
 
@@ -440,11 +509,22 @@ public class PlanService {
 
         String reason = String.format("Set version %d as active (deactivated %d other version(s))",
             targetPlan.getVersion(), deactivatedCount);
-        logAudit(planId, changedBy, reason, "{}");
+        logAudit(planId, changedBy, reason, null);
 
         log.info("Plan {} (version {}) set as active. Deactivated {} other version(s)",
             planId, targetPlan.getVersion(), deactivatedCount);
 
         return SetActiveVersionResponse.activated(planId, targetPlan.getVersion(), deactivatedCount);
+    }
+
+    private PlanAuditLogResponse toAuditResponse(PlanAuditLog auditLog) {
+        return new PlanAuditLogResponse(
+            auditLog.getId(),
+            auditLog.getPlanId(),
+            auditLog.getChangedBy(),
+            auditLog.getChangeDiff(),
+            auditLog.getReason(),
+            auditLog.getTimestamp()
+        );
     }
 }
