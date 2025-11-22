@@ -208,7 +208,6 @@ public class FileController {
                 schema = @Schema(allowableValues = {"UPLOADED", "PSEUDONYMIZED", "PROCESSING", "READY", "ERROR"})
             )
             @RequestParam(required = false) FileStatus status) {
-        // ...existing code...
         UUID authenticatedUserId = securityHelper.getAuthenticatedUserId();
         boolean isStaff = securityHelper.hasAnyRole("ADMIN", "CLINICIAN");
 
@@ -218,7 +217,6 @@ public class FileController {
             }
             userId = authenticatedUserId;
         } else {
-            // CLINICIAN/ADMIN must specify userId
             if (userId == null) {
                 return ResponseEntity.badRequest().build();
             }
@@ -252,7 +250,6 @@ public class FileController {
     @GetMapping("/{id}/download")
     public ResponseEntity<byte[]> download(
             @Parameter(description = "UUID do arquivo") @PathVariable UUID id) throws IOException {
-        // ...existing code...
         IngestionFile f = storageService.get(id);
         securityHelper.validateResourceAccess(f.getUserId());
 
@@ -262,6 +259,87 @@ public class FileController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(data);
+    }
+
+    @Operation(
+        summary = "Visualizar arquivo inline",
+        description = """
+            # 👁️ Visualizar Arquivo (Inline)
+            
+            Retorna o arquivo para visualização inline no navegador (sem download).
+            
+            ## Ideal para:
+            - PDFs - Visualização no navegador
+            - Imagens - Exibição direta
+            - Documentos - Preview
+            
+            ## Retorna:
+            - Content-Type: Tipo MIME apropriado (application/pdf, image/jpeg, etc.)
+            - Content-Disposition: inline
+            - Bytes do arquivo
+            
+            ## Acesso:
+            - Dono do arquivo
+            - CLINICIAN
+            - ADMIN
+            
+            ## Exemplo de uso no front-end:
+            ```html
+            <iframe src="/files/{id}/view" width="100%" height="600px"></iframe>
+            <img src="/files/{id}/view" alt="Medical Image" />
+            ```
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "✅ Arquivo retornado para visualização"),
+        @ApiResponse(responseCode = "403", description = "🔒 Acesso negado"),
+        @ApiResponse(responseCode = "404", description = "❌ Arquivo não encontrado")
+    })
+    @GetMapping("/{id}/view")
+    public ResponseEntity<byte[]> view(
+            @Parameter(description = "UUID do arquivo") @PathVariable UUID id) throws IOException {
+        IngestionFile f = storageService.get(id);
+        securityHelper.validateResourceAccess(f.getUserId());
+
+        byte[] data = storageService.download(id);
+        String filename = f.getOriginalName() != null ? f.getOriginalName() : "file";
+
+        MediaType contentType = determineContentType(filename);
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "max-age=3600")
+                .body(data);
+    }
+
+
+    private MediaType determineContentType(String filename) {
+        if (filename == null) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) {
+            return MediaType.APPLICATION_PDF;
+        } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return MediaType.IMAGE_JPEG;
+        } else if (lower.endsWith(".png")) {
+            return MediaType.IMAGE_PNG;
+        } else if (lower.endsWith(".gif")) {
+            return MediaType.IMAGE_GIF;
+        } else if (lower.endsWith(".bmp")) {
+            return MediaType.parseMediaType("image/bmp");
+        } else if (lower.endsWith(".tiff") || lower.endsWith(".tif")) {
+            return MediaType.parseMediaType("image/tiff");
+        } else if (lower.endsWith(".webp")) {
+            return MediaType.parseMediaType("image/webp");
+        } else if (lower.endsWith(".svg")) {
+            return MediaType.parseMediaType("image/svg+xml");
+        } else {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 
     @Operation(
@@ -285,7 +363,6 @@ public class FileController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @Parameter(description = "UUID do arquivo") @PathVariable UUID id) {
-        // ...existing code...
         IngestionFile f = storageService.get(id);
         securityHelper.validateResourceAccess(f.getUserId());
         storageService.delete(id);
