@@ -5,7 +5,7 @@ import com.rehabai.plan_service.dto.CreatePlanRequest;
 import com.rehabai.plan_service.dto.PlanResponse;
 import com.rehabai.plan_service.dto.UpdatePlanRequest;
 import com.rehabai.plan_service.dto.SetActiveVersionResponse;
-import com.rehabai.plan_service.model.PlanAuditLog;
+import com.rehabai.plan_service.dto.PlanAuditLogResponse;
 import com.rehabai.plan_service.model.PlanStatus;
 import com.rehabai.plan_service.service.PlanService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,8 +71,30 @@ public class PlanController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Listar planos por paciente", security = @SecurityRequirement(name = "bearerAuth"))
-    @ApiResponse(responseCode = "200", description = "✅ Lista retornada")
+    @Operation(
+        summary = "Listar planos por paciente",
+        description = """
+            # Listar Planos por Paciente (com filtro por role)
+            
+            Retorna planos de um paciente com filtro baseado no role do usuário autenticado:
+            
+            ## Comportamento por Role:
+            - **PATIENT (Paciente)**: Retorna apenas planos **ativos** (active=true)
+            - **CLINICIAN/ADMIN**: Retorna **todos os planos** (ativos e inativos)
+            
+            ## Regras de Acesso:
+            - Pacientes só podem ver seus próprios planos
+            - Clinicians/Admins podem ver planos de qualquer paciente
+            
+            ## Ordenação:
+            - Planos ordenados por data de criação (mais recente primeiro)
+            
+            **Nota:** Este comportamento complementa a funcionalidade de "set active version", 
+            garantindo que pacientes vejam apenas a versão ativa do plano.
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponse(responseCode = "200", description = "✅ Lista retornada (filtrada por role)")
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<PlanResponse>> getPlansByUser(
             @Parameter(description = "UUID do paciente") @PathVariable UUID userId) {
@@ -81,12 +103,38 @@ public class PlanController {
         return ResponseEntity.ok(plans);
     }
 
-    @Operation(summary = "Listar planos por paciente e status", security = @SecurityRequirement(name = "bearerAuth"))
-    @ApiResponse(responseCode = "200", description = "✅ Lista filtrada")
+    @Operation(
+        summary = "Listar planos por paciente e status",
+        description = """
+            # Listar Planos por Paciente e Status (com filtro por role)
+            
+            Retorna planos de um paciente filtrados por status, com filtro adicional baseado no role:
+            
+            ## Comportamento por Role:
+            - **PATIENT (Paciente)**: Retorna apenas planos **ativos** (active=true) com o status especificado
+            - **CLINICIAN/ADMIN**: Retorna **todos os planos** (ativos e inativos) com o status especificado
+            
+            ## Status Disponíveis:
+            - DRAFT: Rascunho
+            - APPROVED: Aprovado
+            - ARCHIVED: Arquivado
+            
+            ## Regras de Acesso:
+            - Pacientes só podem ver seus próprios planos
+            - Clinicians/Admins podem ver planos de qualquer paciente
+            
+            ## Ordenação:
+            - Planos ordenados por data de criação (mais recente primeiro)
+            
+            **Exemplo:** Um paciente buscando status=APPROVED verá apenas planos aprovados E ativos.
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponse(responseCode = "200", description = "✅ Lista filtrada (por status e role)")
     @GetMapping("/user/{userId}/status/{status}")
     public ResponseEntity<List<PlanResponse>> getPlansByUserAndStatus(
             @Parameter(description = "UUID do paciente") @PathVariable UUID userId,
-            @Parameter(description = "Status do plano") @PathVariable PlanStatus status) {
+            @Parameter(description = "Status do plano (DRAFT, APPROVED, ARCHIVED)") @PathVariable PlanStatus status) {
         securityHelper.validateResourceAccess(userId);
         List<PlanResponse> plans = planService.getPlansByUserAndStatus(userId, status);
         return ResponseEntity.ok(plans);
@@ -114,15 +162,54 @@ public class PlanController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Histórico de auditoria", description = "Logs de todas as mudanças", security = @SecurityRequirement(name = "bearerAuth"))
-    @ApiResponse(responseCode = "200", description = "✅ Logs retornados")
+    @Operation(
+        summary = "Histórico de auditoria",
+        description = """
+            # Histórico de Auditoria do Plano
+            
+            Retorna todos os registros de auditoria de um plano específico, ordenados por data (mais recente primeiro).
+            
+            ## Informações Retornadas:
+            - **id**: UUID do registro de auditoria
+            - **planId**: UUID do plano auditado
+            - **changedBy**: UUID do usuário que fez a alteração (pode ser null para operações do sistema)
+            - **changeDiff**: JSON estruturado com as diferenças (null para operações sem mudança de dados)
+            - **reason**: Descrição da alteração
+            - **timestamp**: Data e hora da alteração
+            
+            ## Formato do changeDiff:
+            Para atualizações de dados, o campo `changeDiff` contém:
+            ```json
+            {
+              "before": {...dados antigos...},
+              "after": {...dados novos...},
+              "changes": [
+                {"field": "title", "action": "modified"},
+                {"field": "exercises", "action": "modified"}
+              ]
+            }
+            ```
+            
+            Para outras operações (criação, aprovação, etc.), `changeDiff` é null.
+            
+            ## Controle de Acesso:
+            - Pacientes só podem ver auditoria dos próprios planos
+            - Clinicians/Admins podem ver auditoria de qualquer plano
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponse(
+        responseCode = "200",
+        description = "✅ Histórico de auditoria retornado com sucesso"
+    )
     @GetMapping("/{id}/audit")
-    public ResponseEntity<List<PlanAuditLog>> getAuditHistory(
-            @Parameter(description = "UUID do plano") @PathVariable UUID id) {
+    public ResponseEntity<List<PlanAuditLogResponse>> getAuditHistory(
+            @Parameter(description = "UUID do plano", example = "770e8400-e29b-41d4-a716-446655440000")
+            @PathVariable UUID id) {
         PlanResponse plan = planService.getPlan(id);
         securityHelper.validateResourceAccess(plan.userId());
 
-        List<PlanAuditLog> history = planService.getAuditHistory(id);
+        List<PlanAuditLogResponse> history = planService.getAuditHistory(id);
         return ResponseEntity.ok(history);
     }
 
