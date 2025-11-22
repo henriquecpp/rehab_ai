@@ -73,19 +73,18 @@ public class SecurityConfig {
 
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .headers(headers -> headers
+                        .frameOptions(frameOptions -> frameOptions.disable())
+                )
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/auth/**", "/actuator/**").permitAll()
+                        .pathMatchers("/auth/**").permitAll()
+                        .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers(
                             "/swagger-ui.html",
                             "/swagger-ui/**",
-                            "/v3/api-docs/**",
                             "/webjars/**",
-                            "/auth/v3/api-docs",
-                            "/users/v3/api-docs",
-                            "/patients/v3/api-docs",
-                            "/files/v3/api-docs",
-                            "/prescriptions/v3/api-docs",
-                            "/plans/v3/api-docs"
+                            "/v3/api-docs/**",
+                            "/*/v3/api-docs"
                         ).permitAll()
                         .anyExchange().authenticated()
                 )
