@@ -74,7 +74,14 @@ public class StorageService {
                 .orElseThrow(() -> new IllegalArgumentException("file_not_found"));
         try {
             String srcKey = file.getS3Path();
-            String anonymizedKey = "anonymized/" + file.getId() + "/" + (file.getOriginalName() != null ? file.getOriginalName() : "file");
+
+            String extension = "";
+            String originalName = file.getOriginalName();
+            if (originalName != null && originalName.contains(".")) {
+                extension = originalName.substring(originalName.lastIndexOf("."));
+            }
+
+            String anonymizedKey = "anonymized/" + file.getId() + "/" + file.getId() + extension;
 
             CopyObjectRequest copyReq = CopyObjectRequest.builder()
                     .copySource(bucket + "/" + srcKey)
@@ -88,7 +95,7 @@ public class StorageService {
             file.setS3Path(anonymizedKey);
             String oldName = file.getOriginalName();
             if (oldName != null) {
-                file.setOriginalName("[REDACTED]");
+                file.setOriginalName("[REDACTED]" + extension);
                 anonymizationLogService.add(fileId, "mask_original_name", "original_name");
             }
             anonymizationLogService.add(fileId, "s3_path_relocation", "s3_path: " + oldPath + " -> " + anonymizedKey);
