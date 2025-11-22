@@ -16,6 +16,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
 
 server:
   port: ${SERVER_PORT:8086}
@@ -34,11 +39,27 @@ management:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
       transport: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
 
+patient:
+  service:
+    url: ${PATIENT_SERVICE_URL:http://patient-service:8087}
+    timeout-ms: ${PATIENT_SERVICE_TIMEOUT_MS:3000}
+    retry:
+      max-attempts: ${PATIENT_SERVICE_RETRY_MAX_ATTEMPTS:3}
+      backoff-ms: ${PATIENT_SERVICE_RETRY_BACKOFF_MS:300}
 user:
   service:
     url: ${USER_SERVICE_URL:http://user-service:8082}
+    timeout-ms: ${USER_SERVICE_TIMEOUT_MS:3000}
+    retry:
+      max-attempts: ${USER_SERVICE_RETRY_MAX_ATTEMPTS:3}
+      backoff-ms: ${USER_SERVICE_RETRY_BACKOFF_MS:300}
 
-# SpringDoc OpenAPI (Swagger) Configuration
+logging:
+  level:
+    com.rehabai.plan_service: DEBUG
+  request-body:
+    enabled: ${REQUEST_BODY_LOGGING_ENABLED:true}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -53,4 +74,3 @@ springdoc:
     display-request-duration: true
     doc-expansion: none
   show-actuator: false
-
