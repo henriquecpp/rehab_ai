@@ -17,7 +17,11 @@ public interface PlanRepository extends JpaRepository<Plan, UUID> {
 
     List<Plan> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
+    List<Plan> findByUserIdAndActiveTrueOrderByCreatedAtDesc(UUID userId);
+
     List<Plan> findByUserIdAndStatusOrderByCreatedAtDesc(UUID userId, PlanStatus status);
+
+    List<Plan> findByUserIdAndStatusAndActiveTrueOrderByCreatedAtDesc(UUID userId, PlanStatus status);
 
     List<Plan> findByPrescriptionIdOrderByVersionDesc(UUID prescriptionId);
 
