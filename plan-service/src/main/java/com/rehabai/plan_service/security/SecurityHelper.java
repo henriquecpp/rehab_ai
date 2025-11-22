@@ -9,17 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Security helper that reads user information from HTTP headers injected by API Gateway.
- *
- * IMPORTANT: This service DOES NOT validate JWT. It trusts headers from Gateway.
- *
- * Flow:
- * 1. Client → Gateway: Authorization: Bearer <jwt>
- * 2. Gateway validates JWT and extracts claims
- * 3. Gateway → plan-service: X-User-Id, X-User-Roles (NO JWT!)
- * 4. plan-service uses this helper to read headers
- */
+
 @Component
 public class SecurityHelper {
 
@@ -72,6 +62,10 @@ public class SecurityHelper {
         if (!hasAnyRole("CLINICIAN", "ADMIN")) {
             throw new IllegalArgumentException("Access denied: This operation requires CLINICIAN or ADMIN role");
         }
+    }
+
+    public boolean isPatient() {
+        return hasRole("PATIENT") && !hasAnyRole("CLINICIAN", "ADMIN");
     }
 
     public void validateResourceAccess(UUID targetUserId) {
