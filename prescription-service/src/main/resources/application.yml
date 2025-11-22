@@ -51,6 +51,9 @@ amqp:
   routingKeyUploaded: ${AMQP_ROUTING_KEY_UPLOADED:file.uploaded}
   prescriptionQueue: ${AMQP_PRESCRIPTION_QUEUE:prescription.file.uploaded}
 
+file-service:
+  url: ${FILE_SERVICE_URL:http://file-service:8083}
+
 # Explicit S3 credentials for MinIO (local dev)
 S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:minioadmin}
 S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:minioadmin}
@@ -84,7 +87,6 @@ guardrails:
     maxTokensOut: ${GUARDRAILS_MAX_TOKENS_OUT:4096}
   enabled: ${GUARDRAILS_ENABLED:true}
 
-# SpringDoc OpenAPI (Swagger) Configuration
 springdoc:
   api-docs:
     path: /v3/api-docs
