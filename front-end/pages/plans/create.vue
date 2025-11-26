@@ -29,8 +29,8 @@
       @submit.prevent="handleCreatePlan"
       class="space-y-8"
     >
-      <div 
-        v-if="prescriptionFileMetadata" 
+      <div
+        v-if="prescriptionFileMetadata"
         class="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-md border-2 border-blue-200"
       >
         <div class="flex items-start justify-between mb-4">
@@ -67,11 +67,15 @@
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span class="font-semibold text-gray-700">Nome do Arquivo:</span>
-              <p class="text-gray-900">{{ prescriptionFileMetadata.fileName }}</p>
+              <p class="text-gray-900">
+                {{ prescriptionFileMetadata.fileName }}
+              </p>
             </div>
             <div>
               <span class="font-semibold text-gray-700">Tipo:</span>
-              <p class="text-gray-900">{{ formatFileType(prescriptionFileMetadata.fileType) }}</p>
+              <p class="text-gray-900">
+                {{ formatFileType(prescriptionFileMetadata.fileType) }}
+              </p>
             </div>
           </div>
         </div>
@@ -362,17 +366,27 @@
       @close="showFileViewer = false"
       :title="prescriptionFileMetadata?.fileName || 'Visualizar Documento'"
     >
-      <div class="w-full" style="height: 75vh;">
-        <div v-if="loadingFile" class="bg-white rounded-lg p-10 text-center h-full flex items-center justify-center">
+      <div class="w-full" style="height: 75vh">
+        <div
+          v-if="loadingFile"
+          class="bg-white rounded-lg p-10 text-center h-full flex items-center justify-center"
+        >
           <div class="flex flex-col items-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <div
+              class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"
+            ></div>
             <p class="text-gray-600">Carregando arquivo...</p>
           </div>
         </div>
-        <div v-else-if="fileViewerError" class="bg-red-50 rounded-lg p-10 text-center h-full flex items-center justify-center">
+        <div
+          v-else-if="fileViewerError"
+          class="bg-red-50 rounded-lg p-10 text-center h-full flex items-center justify-center"
+        >
           <div class="flex flex-col items-center">
             <span class="text-6xl mb-4">⚠️</span>
-            <p class="text-red-800 font-semibold mb-2">Erro ao carregar arquivo</p>
+            <p class="text-red-800 font-semibold mb-2">
+              Erro ao carregar arquivo
+            </p>
             <p class="text-red-600 text-sm mb-4">{{ fileViewerError }}</p>
             <button
               type="button"
@@ -400,11 +414,7 @@
         >
           Fechar
         </button>
-        <button
-          type="button"
-          class="btn-primary"
-          @click="downloadFile"
-        >
+        <button type="button" class="btn-primary" @click="downloadFile">
           <span>📥</span> Download
         </button>
       </template>
@@ -415,11 +425,9 @@
 <script setup lang="ts">
 import type { NuxtError } from "#app";
 import { computed, ref, watch } from "vue";
+import { useToast } from "~/composables/useToast";
 import type { ExerciseDto } from "~/types/exercise";
-import type {
-  CreatePlanRequest,
-  PlanDataStructure,
-} from "~/types/plan";
+import type { CreatePlanRequest, PlanDataStructure } from "~/types/plan";
 import type {
   PlanDraftResponse,
   PrescriptionListItem,
@@ -432,6 +440,7 @@ definePageMeta({
 
 const route = useRoute();
 const router = useRouter();
+const { addToast } = useToast();
 const isSubmitting = ref(false);
 
 const prescriptionId = computed(() => {
@@ -500,13 +509,16 @@ const formatDateForInput = (dateString?: string) => {
 
 const downloadFile = async () => {
   if (!prescriptionFileMetadata.value) return;
-  
+
   try {
-    const blob = await $api(`/files/${prescriptionFileMetadata.value.fileId}/download`, {
-      responseType: 'blob'
-    });
+    const blob = await $api(
+      `/files/${prescriptionFileMetadata.value.fileId}/download`,
+      {
+        responseType: "blob",
+      }
+    );
     const url = window.URL.createObjectURL(blob as Blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = prescriptionFileMetadata.value.fileName;
     document.body.appendChild(a);
@@ -514,8 +526,8 @@ const downloadFile = async () => {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('Download error:', error);
-    alert('Erro ao baixar arquivo');
+    console.error("Download error:", error);
+    alert("Erro ao baixar arquivo");
   }
 };
 
@@ -524,15 +536,21 @@ watch(showFileViewer, async (show) => {
     loadingFile.value = true;
     fileViewerError.value = null;
     try {
-      const response = await $api(`/files/${prescriptionFileMetadata.value.fileId}/download`, {
-        responseType: 'arrayBuffer'
+      const response = await $api(
+        `/files/${prescriptionFileMetadata.value.fileId}/download`,
+        {
+          responseType: "arrayBuffer",
+        }
+      );
+
+      const blob = new Blob([response as ArrayBuffer], {
+        type: "application/pdf",
       });
-      
-      const blob = new Blob([response as ArrayBuffer], { type: 'application/pdf' });
       fileUrl.value = window.URL.createObjectURL(blob);
     } catch (error: any) {
-      console.error('File load error:', error);
-      fileViewerError.value = error.message || 'Não foi possível carregar o arquivo';
+      console.error("File load error:", error);
+      fileViewerError.value =
+        error.message || "Não foi possível carregar o arquivo";
     } finally {
       loadingFile.value = false;
     }
@@ -543,12 +561,11 @@ watch(showFileViewer, async (show) => {
 });
 
 if (!userId.value) {
-  error.value = createError({ 
-    statusCode: 400, 
-    statusMessage: "Nenhum ID de usuário fornecido para criar o plano." 
+  error.value = createError({
+    statusCode: 400,
+    statusMessage: "Nenhum ID de usuário fornecido para criar o plano.",
   });
   pending.value = false;
-
 } else if (prescriptionId.value) {
   const {
     data: prescriptionData,
@@ -560,9 +577,9 @@ if (!userId.value) {
       lazy: false,
     }
   );
-  
+
   pending.value = prescriptionPending.value;
-  error.value = prescriptionError.value|| null;
+  error.value = prescriptionError.value || null;
 
   if (prescriptionData.value && prescriptionData.value.originalText) {
     if (prescriptionData.value.fileMetadata) {
@@ -599,10 +616,12 @@ if (!userId.value) {
       };
     } catch (e: any) {
       console.error("Falha ao fazer o parse do JSON da prescrição:", e);
-      error.value = createError({ statusCode: 500, statusMessage: "Falha ao ler dados da prescrição." });
+      error.value = createError({
+        statusCode: 500,
+        statusMessage: "Falha ao ler dados da prescrição.",
+      });
     }
   }
-
 } else if (userId.value) {
   editablePlan.value = {
     userId: userId.value,
@@ -634,17 +653,14 @@ const {
   data: prescriptionList,
   pending: libPending,
   error: libError,
-} = await useApiFetch<PrescriptionListItem[]>(
-  prescriptionListUrl,
-  {
-    lazy: false,
-  }
-);
+} = await useApiFetch<PrescriptionListItem[]>(prescriptionListUrl, {
+  lazy: false,
+});
 
 const exerciseLibrary = computed(() => {
   const exercisesInPlan = editablePlan.value?.exercises || [];
   const namesInPlan = new Set(
-    exercisesInPlan.map(ex => ex.name.toLowerCase())
+    exercisesInPlan.map((ex) => ex.name.toLowerCase())
   );
   if (!prescriptionList.value) return [];
   const allExercises: ExerciseDto[] = [];
@@ -665,8 +681,8 @@ const exerciseLibrary = computed(() => {
     }
   }
   const fullLibrary = Array.from(uniqueExercises.values());
-  return fullLibrary.filter(exercise => 
-    !namesInPlan.has(exercise.name.toLowerCase())
+  return fullLibrary.filter(
+    (exercise) => !namesInPlan.has(exercise.name.toLowerCase())
   );
 });
 
@@ -711,10 +727,10 @@ const formatDateForApi = (dateString?: string) => {
   if (!dateString) return undefined;
   try {
     return new Date(`${dateString}T00:00:00.000Z`).toISOString();
-  } catch(e) {
+  } catch (e) {
     return undefined;
   }
-}
+};
 
 async function handleCreatePlan() {
   if (!editablePlan.value) return;
@@ -735,7 +751,7 @@ async function handleCreatePlan() {
       userId: editablePlan.value.userId,
       prescriptionId: prescriptionId.value || null,
       planData: planDataString,
-      
+
       origin: editablePlan.value.origin,
       confidenceScore: 1,
       priority: editablePlan.value.priority,
@@ -746,21 +762,23 @@ async function handleCreatePlan() {
       tags: editablePlan.value.tags,
       active: true,
     };
-    
+
     if (!payload.prescriptionId) {
       delete payload.prescriptionId;
     }
 
-    console.dir( { payload }, { depth: null } );
+    console.dir({ payload }, { depth: null });
 
     await $api("/plans", {
       method: "POST",
       body: payload,
     });
 
+    addToast("Plano criado com sucesso!", "success");
     await router.push("/plans");
   } catch (err) {
     console.error("Falha ao criar o plano:", err);
+    addToast("Erro ao criar o plano. Tente novamente.", "error");
   } finally {
     isSubmitting.value = false;
   }
