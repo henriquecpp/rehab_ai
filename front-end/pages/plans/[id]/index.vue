@@ -643,11 +643,37 @@ const formatDate = (dateString: string): string => {
 const approvePlan = async () => {
   approving.value = true;
   try {
-    await useApiFetch(`/plans/${route.params.id}/approve`, {
+    await $api(`/plans/${route.params.id}/approve`, {
       method: "POST",
     });
     showApproveDialog.value = false;
-    await fetchPlan();
+    const data = await $api(`/plans/${route.params.id}`, { method: "GET" });
+    if (data) {
+      let planData;
+      try {
+        planData = JSON.parse(data.planData);
+      } catch (e) {
+        planData = {
+          title: "Plano sem título",
+          description: "",
+          exercises: [],
+        };
+      }
+      plan.value = {
+        ...plan.value,
+        ...data,
+        title: planData.title || "Plano de Reabilitação",
+        description: planData.description || "",
+        diagnosis: planData.diagnosis,
+        exercises: (planData.exercises || []).map((ex: any) => ({
+          ...ex,
+          reps: ex.repetitions || ex.reps || 10,
+          frequency: translateFrequency(ex.frequency),
+        })),
+        goals: planData.goals || [],
+        notes: planData.notes || "",
+      };
+    }
     alert("Plano aprovado com sucesso!");
   } catch (error) {
     console.error("Erro ao aprovar plano:", error);
@@ -660,11 +686,37 @@ const approvePlan = async () => {
 const archivePlan = async () => {
   archiving.value = true;
   try {
-    await useApiFetch(`/plans/${route.params.id}/archive`, {
+    await $api(`/plans/${route.params.id}/archive`, {
       method: "POST",
     });
     showArchiveDialog.value = false;
-    await fetchPlan();
+    const data = await $api(`/plans/${route.params.id}`, { method: "GET" });
+    if (data) {
+      let planData;
+      try {
+        planData = JSON.parse(data.planData);
+      } catch (e) {
+        planData = {
+          title: "Plano sem título",
+          description: "",
+          exercises: [],
+        };
+      }
+      plan.value = {
+        ...plan.value,
+        ...data,
+        title: planData.title || "Plano de Reabilitação",
+        description: planData.description || "",
+        diagnosis: planData.diagnosis,
+        exercises: (planData.exercises || []).map((ex) => ({
+          ...ex,
+          reps: ex.repetitions || ex.reps || 10,
+          frequency: translateFrequency(ex.frequency),
+        })),
+        goals: planData.goals || [],
+        notes: planData.notes || "",
+      };
+    }
     alert("Plano arquivado com sucesso!");
   } catch (error) {
     console.error("Erro ao arquivar plano:", error);
