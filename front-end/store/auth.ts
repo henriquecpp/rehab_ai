@@ -1,4 +1,4 @@
-// front-end/store/auth.ts
+//store/auth.ts
 import { defineStore } from "pinia";
 import { decodeJwtPayload } from "~/utils/jwt";
 import { $api } from "~/utils/api";
@@ -18,8 +18,19 @@ interface UserProfile {
 
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<UserProfile | null>(null);
-  const token = useCookie<string | null>("auth-token");
-  const refreshToken = useCookie<string | null>("auth-refresh-token");
+  const cookieOptions = {
+    maxAge: 60 * 60 * 24 * 7,
+    sameSite: "lax" as const,
+    secure: false,
+    path: "/",
+  };
+
+  const token = useCookie<string | null>("auth-token", cookieOptions);
+
+  const refreshToken = useCookie<string | null>(
+    "auth-refresh-token",
+    cookieOptions
+  );
   const isRefreshing = ref(false);
   const isAuthLoading = ref(true);
 
@@ -45,12 +56,20 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function fetchUser(userId: string) {
     try {
+      const headers: Record<string, string> = {};
+
+      if (token.value) {
+        headers["Authorization"] = `Bearer ${token.value}`;
+      }
+
       const data = await $api<UserProfile>(`/users/${userId}`, {
         method: "GET",
+        headers: headers,
       });
+
       user.value = data || null;
     } catch (error) {
-      console.error("Failed to fetch user data", error);
+      console.error("Failed to fetch user data on SSR:", error);
       await performLogout();
     }
   }
@@ -158,6 +177,8 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function initAuth() {
     isAuthLoading.value = true;
+
+    // Verifica se o token existe antes de tentar decodificar
     if (token.value) {
       try {
         const payload = decodeJwtPayload(token.value);
@@ -167,9 +188,14 @@ export const useAuthStore = defineStore("auth", () => {
           await performLogout();
         }
       } catch (e) {
+        console.error("InitAuth Error:", e);
         await performLogout();
       }
+    } else {
+      // Se não tem token, garante que o estado está limpo, mas não precisa chamar API de logout
+      user.value = null;
     }
+
     isAuthLoading.value = false;
   }
 
