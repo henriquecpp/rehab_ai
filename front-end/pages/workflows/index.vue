@@ -35,16 +35,6 @@
         </div>
         <button class="btn-secondary" disabled>Ver Plano</button>
       </div>
-
-      <div class="alert alert-warning mt-6">
-        <span>⚠️</span>
-        <div>
-          <strong>Nota de Implementação:</strong> A API (Seções 8 e 9) não
-          parece fornecer um endpoint para listar *todos* os workflows (ex: `GET
-          /prescriptions/workflows`). Um endpoint assim será necessário para
-          tornar esta página funcional.
-        </div>
-      </div>
     </div>
   </UICard>
 </template>
