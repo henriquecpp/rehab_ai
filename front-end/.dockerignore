@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.nuxt
+.output
+.env
+.env.*
+dist
+.DS_Store
+*.log
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea
+
