@@ -18,6 +18,14 @@ export interface PlanDraftResponse {
   guardrailStatus: string;
 }
 
+export interface FileMetadata {
+  fileId: string;
+  fileName: string;
+  fileType: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+}
+
 export interface PrescriptionResponse {
   id: string;
   fileId: string;
@@ -30,6 +38,7 @@ export interface PrescriptionResponse {
   failureReason: string | null;
   createdAt: string;
   updatedAt: string | null;
+  fileMetadata?: FileMetadata; // Optional file metadata
 }
 
 export interface PrescriptionListItem {
