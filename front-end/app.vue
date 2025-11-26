@@ -13,4 +13,8 @@
 
 <script setup lang="ts">
 const authStore = useAuthStore();
+import { onMounted } from "vue";
+onMounted(() => {
+  authStore.initAuth();
+});
 </script>
