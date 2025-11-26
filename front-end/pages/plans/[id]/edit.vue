@@ -366,8 +366,8 @@ interface PlanResponse {
   priority: "LOW" | "MEDIUM" | "HIGH";
   painLevelStart: number;
   painLevelExpectedEnd: number;
-  startDate?: string;
-  endDate?: string;
+  startDate?: number;
+  endDate?: number;
   tags: string[];
 }
 
@@ -375,12 +375,24 @@ const planData = ref<PlanResponse | null>(null);
 const editablePlan = ref<EditablePlanForm | null>(null);
 const currentVersion = ref(1);
 
-// Helper para formatar data para input: '2025-11-18T09:00:00Z' -> '2025-11-18'
-const formatDateForInput = (dateString?: string) => {
-  if (!dateString) return "";
+// Helper para formatar data para input: '2025-11-18T09:00:00Z' ou timestamp -> '2025-11-18'
+const formatDateForInput = (date?: string | number) => {
+  if (!date) return "";
+  
   try {
-    return new Date(dateString).toISOString().split("T")[0];
+    let d: Date;
+    const timestamp = Number(date);
+    if (!isNaN(timestamp)) {
+      const ms = timestamp < 100000000000 ? timestamp * 1000 : timestamp;
+      d = new Date(ms);
+    } else {
+      d = new Date(date);
+    }
+
+    // Retorna no formato YYYY-MM-DD
+    return d.toISOString().split("T")[0];
   } catch (e) {
+    console.error("Erro ao formatar data:", date, e);
     return "";
   }
 };
