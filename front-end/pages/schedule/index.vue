@@ -349,8 +349,8 @@ const events = ref<any[]>([
   {
     id: "1",
     type: "session",
-    title: "Fisioterapia - João Silva",
-    patient: "João Silva",
+    title: "Fisio",
+    patient: "Paciente Exemplo",
     date: new Date().toISOString().split("T")[0],
     time: "09:00",
     description: "Sessão de fortalecimento",
@@ -358,8 +358,8 @@ const events = ref<any[]>([
   {
     id: "2",
     type: "appointment",
-    title: "Consulta - Maria Santos",
-    patient: "Maria Santos",
+    title: "Consulta - Fisio",
+    patient: "Paciente Exemplo",
     date: new Date().toISOString().split("T")[0],
     time: "14:00",
     description: "Avaliação inicial",
