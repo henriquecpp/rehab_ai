@@ -67,7 +67,6 @@ spring:
           predicates: 
             - Path=/patients,/patients/**
         - id: file-service
-        - id: file-service
           uri: ${FILE_SERVICE_URL:http://file-service:8083}
           predicates:
             - Path=/files,/files/**
