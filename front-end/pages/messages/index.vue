@@ -396,22 +396,22 @@ const availablePatients = ref<any[]>([]);
 const conversations = ref([
   {
     id: "1",
-    name: "João Silva",
-    role: "Paciente",
-    lastMessage: "Obrigado pela sessão de hoje!",
+    name: "Fisio",
+    role: "Fisioterapeuta",
+    lastMessage: "Qualquer coisa, me avise!",
     lastMessageTime: new Date().toISOString(),
     unread: 2,
     online: true,
   },
-  {
+  /* {
     id: "2",
-    name: "Maria Santos",
+    name: "Paciente Exemplo",
     role: "Paciente",
     lastMessage: "Quando é minha próxima consulta?",
     lastMessageTime: new Date(Date.now() - 3600000).toISOString(),
     unread: 0,
     online: false,
-  },
+  }, */
 ]);
 
 definePageMeta({
@@ -444,21 +444,21 @@ function loadMessages(conversationId: string) {
     {
       id: "1",
       senderId: selectedConversation.value.id,
-      text: "Olá! Tudo bem?",
+      text: "Olá! Tudo bem? Criei um plano novo pra você.",
       timestamp: new Date(Date.now() - 7200000).toISOString(),
       read: true,
     },
-    {
+    /* {
       id: "2",
       senderId: authStore.user?.id,
       text: "Olá! Tudo ótimo, e você?",
       timestamp: new Date(Date.now() - 7100000).toISOString(),
       read: true,
-    },
+    }, */
     {
-      id: "3",
+      id: "2",
       senderId: selectedConversation.value.id,
-      text: "Bem também! Gostaria de agendar uma sessão.",
+      text: "Qualquer coisa, me avise!",
       timestamp: new Date(Date.now() - 3600000).toISOString(),
       read: true,
     },
