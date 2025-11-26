@@ -312,6 +312,21 @@ services:
     ports:
       - "8087:8087"
 
+  front-end:
+    build: ./front-end
+    container_name: rehab-frontend
+    environment:
+      API_BASE_URL: http://api-gateway:8080
+      NODE_ENV: development
+      PORT: 3001
+      HOST: 0.0.0.0
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api-gateway
+    networks:
+      - rehab-network
+
   # ===============================
   # PROMETHEUS
   # ===============================
